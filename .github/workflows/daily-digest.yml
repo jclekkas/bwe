@@ -20,6 +20,11 @@ permissions:
   contents: write
   issues: write
 
+env:
+  # Opt into Node.js 24 for JS-based actions ahead of the June 2026 default
+  # to silence the deprecation warning.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   run:
     runs-on: ubuntu-latest
