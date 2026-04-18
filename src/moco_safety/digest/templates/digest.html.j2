@@ -72,30 +72,9 @@
     </table>
   {% endif %}
 
-  {{ section_header("Sex Offender Registry (ZIP 20874)", offenders.status, offenders.note) }}
-  {% if offenders.status == 'error' %}
-    <div>Registry unavailable right now. See explorer for last known list.</div>
-  {% else %}
-    <div>Total listed: <strong>{{ offenders.total }}</strong></div>
-    {% if offenders.new_count %}
-      <div style="color: #a00;">New since yesterday: {{ offenders.new_count }}</div>
-      <ul style="margin: 4px 0 8px 18px;">
-        {% for o in offenders.new %}
-          <li><a href="{{ o.profile_url }}">{{ o.name }}</a> — {{ o.address }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-    {% if offenders.gone_count %}
-      <div style="color: #080;">No longer listed: {{ offenders.gone_count }}</div>
-    {% endif %}
-    {% if not offenders.new_count and not offenders.gone_count %}
-      <div style="color: #666;">No changes since yesterday.</div>
-    {% endif %}
-  {% endif %}
-
   <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0 12px;">
   <div style="color: #999; font-size: 11px;">
-    Data: Montgomery County open data portal; Maryland sex offender registry (icrimewatch.net).
+    Data: Montgomery County open data portal.
     Socrata crime data often lags by several days. Missing sections mean the source had no data or was unavailable.
     {% if ui_url %}Explorer: <a href="{{ ui_url }}">{{ ui_url }}</a>{% endif %}
   </div>

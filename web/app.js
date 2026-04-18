@@ -18,17 +18,13 @@ const SOURCE_COLORS = {
   crime: "#ff9c6a",
   dispatched: "#46d7ff",
   fire_ems: "#ffb300",
-  offender: "#b084ff",
 };
 
 const state = {
   snapshot: null,
   incidentCluster: null,
-  offenderLayer: null,
   incidentMarkers: [],
-  offenderMarkers: [],
   lockToMap: false,
-  showOffenders: true,
   map: null,
 };
 
@@ -187,10 +183,6 @@ function incidentHaystack(i) {
   return [i.description, i.address, i.category, i.subcategory, i.source].filter(Boolean).join(" ");
 }
 
-function offenderHaystack(o) {
-  return [o.name, o.address, (o.offenses || []).join(" "), "offender", "registry"].filter(Boolean).join(" ");
-}
-
 function matchesIncident(i, f) {
   if (!f.sources.has(i.source)) return false;
   if (!within(i.occurred_at, f.hours)) return false;
@@ -204,18 +196,12 @@ function visibleIncidents(f) {
   return (state.snapshot.incidents || []).filter((i) => matchesIncident(i, f));
 }
 
-function visibleOffenders(f) {
-  return (state.snapshot.offenders || []).filter((o) => matchesAllTokens(offenderHaystack(o), f.tokens));
-}
-
 function clearLayers() {
   if (state.incidentCluster) state.incidentCluster.clearLayers();
-  if (state.offenderLayer) state.offenderLayer.clearLayers();
   state.incidentMarkers = [];
-  state.offenderMarkers = [];
 }
 
-function renderMarkers(incidents, offenders) {
+function renderMarkers(incidents) {
   clearLayers();
 
   const incidentMs = [];
@@ -230,18 +216,6 @@ function renderMarkers(incidents, offenders) {
     state.incidentMarkers.push(m);
   }
   state.incidentCluster.addLayers(incidentMs);
-
-  if (state.showOffenders) {
-    for (const o of offenders) {
-      if (o.lat == null || o.lon == null) continue;
-      const m = L.marker([o.lat, o.lon], { icon: makeIcon(SOURCE_COLORS.offender, "triangle") });
-      m.bindPopup(popupForOffender(o));
-      m.on("click", () => showDetail(detailHtmlForOffender(o)));
-      m._offender = o;
-      state.offenderLayer.addLayer(m);
-      state.offenderMarkers.push(m);
-    }
-  }
 }
 
 function popupForIncident(i) {
@@ -250,15 +224,6 @@ function popupForIncident(i) {
     <span style="color:#8a93a6">${fmtTime(i.occurred_at)}</span><br>
     ${escapeHtml(i.address || "")}<br>
     ${i.raw_url ? `<a href="${i.raw_url}" target="_blank" rel="noopener">source row</a>` : ""}`;
-}
-
-function popupForOffender(o) {
-  return `<strong>${escapeHtml(o.name)}</strong>
-    <span style="background:#2a1d3d;color:#b084ff;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:6px;">REGISTRY</span><br>
-    ${escapeHtml(o.address || "")}<br>
-    <span style="color:#8a93a6">last verified: ${escapeHtml(o.last_verified || "unknown")}</span><br>
-    ${(o.offenses && o.offenses.length) ? `<div style="color:#8a93a6;font-size:11px;margin-top:4px;">${escapeHtml(o.offenses.join("; "))}</div>` : ""}
-    ${o.profile_url && o.profile_url !== "#demo" ? `<a href="${o.profile_url}" target="_blank" rel="noopener">registry profile</a>` : ""}`;
 }
 
 function renderIncidentList(incidents) {
@@ -288,41 +253,6 @@ function renderIncidentList(incidents) {
       <div class="row-meta">${fmtTime(i.occurred_at)}</div>
       <div class="row-addr">${escapeHtml(i.address || "")}</div>`;
     btn.addEventListener("click", () => focusIncident(i));
-    li.appendChild(btn);
-    ul.appendChild(li);
-  }
-}
-
-function renderOffenderList(offenders) {
-  const ul = document.getElementById("offender-list");
-  ul.innerHTML = "";
-  const sorted = [...offenders].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  document.getElementById("offender-count").textContent = `(${sorted.length})`;
-
-  if (sorted.length === 0) {
-    const empty = document.createElement("li");
-    empty.className = "empty";
-    const src = state.snapshot && state.snapshot.sources && state.snapshot.sources.offenders;
-    if (src && src.blocked && src.manual_url) {
-      empty.innerHTML =
-        `State registry blocks automated access from this host. ` +
-        `<a href="${src.manual_url}" target="_blank" rel="noopener">` +
-        `Open the Maryland registry for ZIP ${escapeHtml(state.snapshot.zip)} &rarr;</a>`;
-    } else {
-      empty.textContent = "No offenders match your search.";
-    }
-    ul.appendChild(empty);
-    return;
-  }
-
-  for (const o of sorted) {
-    const li = document.createElement("li");
-    const btn = document.createElement("button");
-    btn.innerHTML = `
-      <div class="row-title"><span class="badge offender">registry</span>${escapeHtml(o.name || "")}</div>
-      <div class="row-addr">${escapeHtml(o.address || "")}</div>
-      <div class="row-meta">last verified: ${escapeHtml(o.last_verified || "unknown")}${o.lat == null ? " · address only" : ""}</div>`;
-    btn.addEventListener("click", () => focusOffender(o));
     li.appendChild(btn);
     ul.appendChild(li);
   }
@@ -399,35 +329,6 @@ function detailHtmlForIncident(i) {
   `;
 }
 
-function detailHtmlForOffender(o) {
-  const actions = [];
-  if (o.profile_url && o.profile_url !== "#demo") {
-    actions.push(`<a href="${o.profile_url}" target="_blank" rel="noopener">Registry profile &rarr;</a>`);
-  }
-  if (o.lat != null && o.lon != null) {
-    actions.push(`<a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" rel="noopener">Open in Google Maps &rarr;</a>`);
-  }
-  return `
-    <h3>${escapeHtml(o.name || "Offender")}</h3>
-    <div class="subhead">
-      <span class="badge offender">registry</span>
-      ZIP ${escapeHtml(o.zip_code || "")} · last verified: ${escapeHtml(o.last_verified || "unknown")}
-    </div>
-    <div class="actions">${actions.join("")}</div>
-    <div class="section-title">Record</div>
-    ${kvTable({
-      name: o.name,
-      address: o.address,
-      zip_code: o.zip_code,
-      last_verified: o.last_verified,
-      lat: o.lat,
-      lon: o.lon,
-      profile_url: o.profile_url,
-      offenses: (o.offenses || []).join("; "),
-    })}
-  `;
-}
-
 function focusIncident(i) {
   showDetail(detailHtmlForIncident(i));
   if (i.lat != null) {
@@ -436,30 +337,19 @@ function focusIncident(i) {
   }
 }
 
-function focusOffender(o) {
-  showDetail(detailHtmlForOffender(o));
-  if (o.lat != null) {
-    const m = state.offenderMarkers.find((m) => m._offender.id === o.id);
-    openMarker(m, o.lat, o.lon);
-  }
-}
-
 function refresh() {
   if (!state.snapshot) return;
   const f = currentFilters();
   let incidents = visibleIncidents(f);
-  let offenders = visibleOffenders(f);
 
-  renderMarkers(incidents, offenders);
+  renderMarkers(incidents);
 
   if (state.lockToMap) {
     const bounds = state.map.getBounds();
     incidents = incidents.filter((i) => i.lat != null && bounds.contains([i.lat, i.lon]));
-    offenders = offenders.filter((o) => o.lat != null && bounds.contains([o.lat, o.lon]));
   }
 
   renderIncidentList(incidents);
-  renderOffenderList(offenders);
   renderFilterSummary(f, incidents.length);
 
   // Toggle visibility of the "clear search" X (defensive — skip if HTML is stale).
@@ -576,9 +466,7 @@ async function main() {
   }).addTo(state.map);
 
   state.incidentCluster = L.markerClusterGroup({ disableClusteringAtZoom: 15, spiderfyOnMaxZoom: true });
-  state.offenderLayer = L.layerGroup();  // offenders stay unclustered for a scannable registry
   state.map.addLayer(state.incidentCluster);
-  state.map.addLayer(state.offenderLayer);
 
   try {
     const geo = await (await fetchFirstAvailable(GEO_CANDIDATES)).json();
@@ -618,11 +506,6 @@ async function main() {
     if (q) { q.value = ""; q.focus(); }
     refresh();
   });
-  on("show-offenders", "change", (e) => {
-    state.showOffenders = e.target.checked;
-    if (!state.showOffenders) state.offenderLayer.clearLayers();
-    refresh();
-  });
   on("lock-to-map", "change", (e) => {
     state.lockToMap = e.target.checked;
     refresh();
@@ -632,8 +515,6 @@ async function main() {
     const tr = byId("time-range"); if (tr) tr.value = "168";
     const q = byId("q"); if (q) q.value = "";
     document.querySelectorAll(".src, .cat").forEach((el) => (el.checked = true));
-    const so = byId("show-offenders"); if (so) so.checked = true;
-    state.showOffenders = true;
     const lm = byId("lock-to-map"); if (lm) lm.checked = false;
     state.lockToMap = false;
     refresh();

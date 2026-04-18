@@ -13,7 +13,6 @@ def _snap(**over):
             "crime": {"status": "ok", "note": "4 rows"},
             "dispatched": {"status": "ok", "note": ""},
             "fire_ems": {"status": "degraded", "note": "aggregate only"},
-            "offenders": {"status": "ok", "note": ""},
         },
         "incidents": [
             {
@@ -32,10 +31,6 @@ def _snap(**over):
         "fire_ems_station_summary": [
             {"station": "29", "date": "2026-04-17", "ems_count": 5, "fire_count": 1},
         ],
-        "offenders": [
-            {"id": "1", "name": "A", "address": "1 X", "profile_url": "", "last_verified": "2025-01-01"},
-            {"id": "2", "name": "B", "address": "2 Y", "profile_url": "", "last_verified": "2025-01-01"},
-        ],
     }
     base.update(over)
     return base
@@ -48,17 +43,6 @@ def test_build_sections_24h_window():
     ctx = builder.build_sections(snap, settings, previous=None, now=now)
     assert ctx["crime"]["rows"][0]["description"] == "Theft from Vehicle"
     assert ctx["dispatched"]["rows"][0]["description"] == "Noise complaint"
-    assert ctx["offenders"]["total"] == 2
-    assert ctx["offenders"]["new_count"] == 2  # no previous
-
-
-def test_offender_diff():
-    settings = load_settings()
-    snap = _snap()
-    previous = _snap(offenders=[{"id": "1", "name": "A", "address": "1 X", "profile_url": "", "last_verified": "2025-01-01"}])
-    ctx = builder.build_sections(snap, settings, previous=previous, now=datetime(2026, 4, 18, 12, 0, tzinfo=timezone.utc))
-    assert ctx["offenders"]["new_count"] == 1
-    assert ctx["offenders"]["gone_count"] == 0
 
 
 def test_render_produces_html_and_text():

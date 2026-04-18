@@ -4,7 +4,6 @@ from moco_safety.normalize import (
     crime_to_incidents,
     dispatched_to_incidents,
     fire_ems_to_outputs,
-    offenders_to_records,
 )
 
 
@@ -97,25 +96,3 @@ def test_fire_ems_mixed():
     assert any(i.category == "Overdose" for i in incidents)
     assert any(i.category == "EMS" for i in incidents)
     assert any(i.category == "Fire" for i in incidents)
-
-
-def test_offenders():
-    r = FetchResult(
-        source="offenders",
-        status="ok",
-        records=[{
-            "id": "999",
-            "name": "TEST PERSON",
-            "profile_url": "https://example.com/detail.php?OfndrID=999",
-            "address": "500 FAKE ST, GERMANTOWN, MD 20874",
-            "zip_code": "20874",
-            "offenses": ["Test offense"],
-            "last_verified": "2026-01-01",
-            "photo_url": None,
-            "lat": 39.17,
-            "lon": -77.24,
-        }],
-    )
-    out = offenders_to_records(r)
-    assert out[0].name == "TEST PERSON"
-    assert out[0].zip_code == "20874"

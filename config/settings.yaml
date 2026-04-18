@@ -23,11 +23,6 @@ sources:
     station_dataset: "v68m-9rt9"
     overdose_dataset: "4wcf-kdya"
     stations: [29, 33]
-  offenders:
-    enabled: true
-    agency_id: "54438"
-    rate_limit_seconds: 2.0
-    cache_ttl_days: 7
 digest:
   subject_prefix: "MoCo 20874 Daily Digest"
   empty_section_behavior: "show"

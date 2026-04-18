@@ -11,17 +11,15 @@ from .digest import builder, sender
 from .fetchers.crime import CrimeFetcher
 from .fetchers.dispatched import DispatchedFetcher
 from .fetchers.fire_ems import FireEmsFetcher
-from .fetchers.sex_offenders import SexOffenderFetcher
 from .snapshot import (
     Snapshot,
-    apply_offender_fallback,
     build_snapshot,
     load_previous,
     prune_history,
     save,
 )
 
-ALL_FETCHERS = [CrimeFetcher(), DispatchedFetcher(), FireEmsFetcher(), SexOffenderFetcher()]
+ALL_FETCHERS = [CrimeFetcher(), DispatchedFetcher(), FireEmsFetcher()]
 
 
 def _since(days: int) -> datetime:
@@ -41,10 +39,9 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         print(f"  status={results[f.name].status} note={results[f.name].note}", file=sys.stderr)
 
     snap = build_snapshot(results, settings, cat_map)
-    apply_offender_fallback(snap, previous, results["offenders"].status)
     save(snap)
     prune_history(settings.history_days)
-    print(f"snapshot written: {len(snap.incidents)} incidents, {len(snap.offenders)} offenders", file=sys.stderr)
+    print(f"snapshot written: {len(snap.incidents)} incidents", file=sys.stderr)
     return 0
 
 
@@ -91,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     pd.add_argument("--send", action="store_true", help="actually send via SMTP")
     pd.add_argument("--out", type=str, help="write rendered HTML to this path")
     pd.add_argument("--snapshot", type=str, help="path to snapshot.json (default: data/snapshot.json)")
-    pd.add_argument("--previous", type=str, help="path to previous snapshot for offender diff")
+    pd.add_argument("--previous", type=str, help="path to previous snapshot for trend comparison")
     pd.set_defaults(func=cmd_digest)
 
     args = p.parse_args(argv)

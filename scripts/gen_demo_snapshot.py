@@ -260,21 +260,6 @@ def main() -> None:
         station_summary.append(make_station_summary("29", date, rng))
         station_summary.append(make_station_summary("33", date, rng))
 
-    offenders = [
-        {"id": "demo-1", "name": "DEMO, SAMPLE A", "address": "19000 BLOCK GERMANTOWN RD, GERMANTOWN, MD 20874",
-         "zip_code": ZIP, "offenses": ["Demo registry entry — real registry populated by cron"],
-         "last_verified": "2026-02-10", "photo_url": None, "profile_url": "#demo",
-         "lat": 39.184, "lon": -77.249},
-        {"id": "demo-2", "name": "DEMO, SAMPLE B", "address": "13300 BLOCK CLOPPER RD, GERMANTOWN, MD 20874",
-         "zip_code": ZIP, "offenses": ["Demo registry entry — real registry populated by cron"],
-         "last_verified": "2025-11-04", "photo_url": None, "profile_url": "#demo",
-         "lat": 39.163, "lon": -77.268},
-        {"id": "demo-3", "name": "DEMO, SAMPLE C", "address": "18600 BLOCK MIDDLEBROOK RD, GERMANTOWN, MD 20874",
-         "zip_code": ZIP, "offenses": ["Demo registry entry — real registry populated by cron"],
-         "last_verified": "2026-01-22", "photo_url": None, "profile_url": "#demo",
-         "lat": 39.175, "lon": -77.260},
-    ]
-
     snap = {
         "generated_at": iso(GENERATED_AT),
         "zip": ZIP,
@@ -283,16 +268,13 @@ def main() -> None:
             "crime": {"status": "ok", "note": f"demo: {sum(1 for i in incidents if i['source']=='crime')} rows across 365 days", "count": sum(1 for i in incidents if i['source'] == 'crime')},
             "dispatched": {"status": "ok", "note": f"demo: {sum(1 for i in incidents if i['source']=='dispatched')} rows across 365 days", "count": sum(1 for i in incidents if i['source'] == 'dispatched')},
             "fire_ems": {"status": "degraded", "note": "demo: station aggregates + overdoses", "count": sum(1 for i in incidents if i['source'] == 'fire_ems'), "granularity": "mixed"},
-            "offenders": {"status": "ok", "note": "demo: 3 placeholder records", "count": len(offenders)},
         },
         "incidents": sorted(incidents, key=lambda x: x["occurred_at"], reverse=True),
         "fire_ems_station_summary": station_summary,
-        "offenders": offenders,
-        "offenders_stale_copy": [],
     }
 
     OUT.write_text(json.dumps(snap, indent=2))
-    print(f"wrote {OUT} — {len(incidents)} incidents, {len(offenders)} offenders")
+    print(f"wrote {OUT} — {len(incidents)} incidents")
 
 
 if __name__ == "__main__":
