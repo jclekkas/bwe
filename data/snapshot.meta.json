@@ -1,0 +1,32 @@
+{
+  "counts": {
+    "incidents": 12611,
+    "offenders": 0,
+    "station_summary": 0
+  },
+  "generated_at": "2026-04-18T12:58:46+00:00",
+  "sources": {
+    "crime": {
+      "count": 2615,
+      "note": "fetched 2615 rows",
+      "status": "ok"
+    },
+    "dispatched": {
+      "count": 9996,
+      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-18T12:58:42'...)",
+      "status": "ok"
+    },
+    "fire_ems": {
+      "count": 0,
+      "granularity": "station-aggregate",
+      "note": "stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses via: no filter",
+      "status": "error"
+    },
+    "offenders": {
+      "count": 0,
+      "note": "HTTPError: 403 Client Error: Forbidden for url: https://www.icrimewatch.net/results.php?AgencyID=54438&SubmitZip=Zip+Code&Zip=20874",
+      "status": "error"
+    }
+  },
+  "zip": "20874"
+}
