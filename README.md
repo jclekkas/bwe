@@ -30,9 +30,9 @@ Montgomery County, Maryland — filtered to ZIP **20874** (Germantown).
    | `DIGEST_FROM` | no | defaults to `SMTP_USER` |
    | `SOCRATA_APP_TOKEN` | no | get one at `data.montgomerycountymd.gov` if you see 429s |
 
-3. **Enable Pages** — _Settings → Pages → Source: **GitHub Actions**_. The
-   `Deploy Pages` workflow will build and publish on every push to `web/`,
-   `data/snapshot.json`, or `config/zip_20874.geojson`. The URL is:
+3. **Enable Pages** — the `Deploy Pages` workflow publishes the UI to a
+   `gh-pages` branch. Then: _Settings → Pages → Source: **Deploy from a
+   branch** → Branch: `gh-pages` / `/ (root)`_. URL:
    `https://<you>.github.io/<repo>/`
 
 4. **Run it once** — _Actions → Daily Digest → Run workflow_. Verify:

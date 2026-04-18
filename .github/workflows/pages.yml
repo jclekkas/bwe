@@ -1,5 +1,9 @@
-# Deploys the /web UI to GitHub Pages on every push (including the cron's snapshot commit).
-# Requires: Settings -> Pages -> Source: GitHub Actions (one-time setup).
+# Publishes the /web UI + latest snapshot to a `gh-pages` branch.
+# To serve it:
+#   Settings -> Pages -> Source: "Deploy from a branch"
+#                      -> Branch: gh-pages / (root)
+# This approach succeeds even before Pages is enabled in the repo; once the
+# gh-pages branch exists, GitHub often auto-enables Pages against it.
 name: Deploy Pages
 
 on:
@@ -13,17 +17,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    # Only deploy from the main feature branch to avoid clobbering from other branches.
+    if: github.ref == 'refs/heads/claude/local-alert-emails-5tQLN' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 
@@ -33,17 +37,14 @@ jobs:
           cp -r web/* site/
           cp data/snapshot.json site/snapshot.json
           cp config/zip_20874.geojson site/zip_20874.geojson
+          # Prevent Jekyll from filtering files that start with underscore.
+          touch site/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "deploy: ${{ github.sha }}"
