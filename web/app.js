@@ -43,11 +43,24 @@ function parseIso(iso) {
   return isNaN(d) ? null : d;
 }
 
+function snapshotNow() {
+  // Anchor "now" to the snapshot's generated_at so filters work even if the
+  // viewer's clock is far from when the data was collected.
+  const snapIso = state.snapshot && state.snapshot.generated_at;
+  const d = snapIso ? parseIso(snapIso) : null;
+  return d ? d.getTime() : Date.now();
+}
+
 function within(iso, hours) {
   if (!hours || hours <= 0) return true;
   const d = parseIso(iso);
   if (!d) return false;
-  return (Date.now() - d.getTime()) <= hours * 3600 * 1000;
+  const anchor = snapshotNow();
+  const delta = anchor - d.getTime();
+  // Negative delta means the record is dated after the snapshot was built —
+  // should not happen in real data but treat it as "now" so it isn't silently dropped.
+  if (delta < 0) return true;
+  return delta <= hours * 3600 * 1000;
 }
 
 function makeIcon(color, shape = "circle") {
@@ -135,6 +148,13 @@ function renderList(incidents, offenders) {
 
   document.getElementById("list-count").textContent = `(${items.length})`;
 
+  if (items.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "Nothing matches your filters.";
+    ul.appendChild(empty);
+  }
+
   for (const it of items) {
     const li = document.createElement("li");
     const btn = document.createElement("button");
@@ -207,18 +227,27 @@ function popupForOffender(o) {
     ${o.profile_url ? `<a href="${o.profile_url}" target="_blank" rel="noopener">profile</a>` : ""}`;
 }
 
+function openMarker(m, lat, lon) {
+  // zoomToShowLayer uncluster first, then open the popup inside the callback.
+  state.map.flyTo([lat, lon], 16, { duration: 0.6 });
+  if (!m) return;
+  if (state.markers && typeof state.markers.zoomToShowLayer === "function") {
+    state.markers.zoomToShowLayer(m, () => m.openPopup());
+  } else {
+    m.openPopup();
+  }
+}
+
 function focusIncident(i) {
   if (i.lat == null) return;
   const m = state.incidentMarkers.find((m) => m._incident.id === i.id);
-  state.map.flyTo([i.lat, i.lon], 15, { duration: 0.6 });
-  if (m) m.openPopup();
+  openMarker(m, i.lat, i.lon);
 }
 
 function focusOffender(o) {
   if (o.lat == null) return;
   const m = state.offenderMarkers.find((m) => m._offender.id === o.id);
-  state.map.flyTo([o.lat, o.lon], 15, { duration: 0.6 });
-  if (m) m.openPopup();
+  openMarker(m, o.lat, o.lon);
 }
 
 function refresh() {

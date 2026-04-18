@@ -153,6 +153,7 @@ section.map-wrap { position: relative; }
 .badge.offender { background: #2a1d3d; color: var(--violet); }
 
 #list-count { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 6px; }
+#list li.empty { color: var(--muted); padding: 14px 4px; font-style: italic; }
 
 .leaflet-popup-content-wrapper { background: var(--panel-2); color: var(--fg); border-radius: 4px; }
 .leaflet-popup-tip { background: var(--panel-2); }
