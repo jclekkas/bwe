@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moco-safety"
+version = "0.1.0"
+description = "MoCo 20874 public safety digest and explorer"
+requires-python = ">=3.11"
+dependencies = [
+  "sodapy>=2.2.0",
+  "requests>=2.32",
+  "beautifulsoup4>=4.12",
+  "jinja2>=3.1",
+  "pyyaml>=6.0",
+  "shapely>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

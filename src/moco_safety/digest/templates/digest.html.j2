@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<body style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #111; max-width: 640px; margin: 0 auto; padding: 16px;">
+  <h1 style="font-size: 20px; margin: 0 0 4px 0;">MoCo {{ zip }} — Daily Safety Digest</h1>
+  <div style="color: #666; font-size: 13px; margin-bottom: 16px;">
+    {{ date }} &middot; generated {{ generated_at }}
+    {% if ui_url %}&middot; <a href="{{ ui_url }}">open explorer</a>{% endif %}
+  </div>
+
+  {% macro section_header(title, status, note) -%}
+    <h2 style="font-size: 16px; border-top: 1px solid #ddd; padding-top: 12px; margin: 16px 0 8px;">
+      {{ title }}
+      {% if status != 'ok' %}<span style="font-size: 11px; color: #a00;">[{{ status }}]</span>{% endif %}
+    </h2>
+    {% if note %}<div style="color: #888; font-size: 12px; margin-bottom: 6px;">{{ note }}</div>{% endif %}
+  {%- endmacro %}
+
+  {% macro incident_row(i) -%}
+    <tr>
+      <td style="padding: 4px 8px 4px 0; font-size: 12px; color: #666; white-space: nowrap;">{{ i.occurred_at or '—' }}</td>
+      <td style="padding: 4px 8px 4px 0; font-size: 13px;">
+        <strong>{{ i.description }}</strong>
+        {% if i.subcategory %}<span style="color: #555;"> — {{ i.subcategory }}</span>{% endif %}
+        {% if i.address %}<div style="color: #666; font-size: 12px;">{{ i.address }}</div>{% endif %}
+      </td>
+    </tr>
+  {%- endmacro %}
+
+  {{ section_header("Crime (last 24h)", crime.status, crime.note) }}
+  {% if crime.status == 'error' %}
+    <div>Source unavailable: {{ crime.note }}</div>
+  {% elif not crime.rows %}
+    <div style="color: #666;">No new crime incidents in the last 24 hours.</div>
+  {% else %}
+    {% for group, items in crime.by_category.items() %}
+      <div style="font-weight: 600; margin: 8px 0 2px;">{{ group }} ({{ items|length }})</div>
+      <table style="border-collapse: collapse; width: 100%;">
+        {% for i in items %}{{ incident_row(i) }}{% endfor %}
+      </table>
+    {% endfor %}
+  {% endif %}
+
+  {{ section_header("Police Dispatched (last 24h)", dispatched.status, dispatched.note) }}
+  {% if dispatched.status == 'error' %}
+    <div>Source unavailable: {{ dispatched.note }}</div>
+  {% elif not dispatched.rows %}
+    <div style="color: #666;">No dispatched calls in the last 24 hours.</div>
+  {% else %}
+    <table style="border-collapse: collapse; width: 100%;">
+      {% for i in dispatched.rows %}{{ incident_row(i) }}{% endfor %}
+    </table>
+  {% endif %}
+
+  {{ section_header("Fire / EMS", fire_ems.status, fire_ems.note) }}
+  <div style="color: #666; font-size: 12px; margin-bottom: 6px;">
+    Note: MCFRS publishes station-daily aggregates only — no individual call addresses.
+  </div>
+  {% if fire_ems.station_summary %}
+    <ul style="margin: 0; padding-left: 18px;">
+      {% for s in fire_ems.station_summary %}
+        <li>Station {{ s.station }} ({{ s.date }}): {{ s.ems_count }} EMS, {{ s.fire_count }} fire</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div style="color: #666;">No station activity reported in the window.</div>
+  {% endif %}
+
+  {% if fire_ems.overdoses %}
+    <div style="font-weight: 600; margin: 12px 0 4px;">Overdoses (last 7d)</div>
+    <table style="border-collapse: collapse; width: 100%;">
+      {% for i in fire_ems.overdoses %}{{ incident_row(i) }}{% endfor %}
+    </table>
+  {% endif %}
+
+  {{ section_header("Sex Offender Registry (ZIP 20874)", offenders.status, offenders.note) }}
+  {% if offenders.status == 'error' %}
+    <div>Registry unavailable right now. See explorer for last known list.</div>
+  {% else %}
+    <div>Total listed: <strong>{{ offenders.total }}</strong></div>
+    {% if offenders.new_count %}
+      <div style="color: #a00;">New since yesterday: {{ offenders.new_count }}</div>
+      <ul style="margin: 4px 0 8px 18px;">
+        {% for o in offenders.new %}
+          <li><a href="{{ o.profile_url }}">{{ o.name }}</a> — {{ o.address }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if offenders.gone_count %}
+      <div style="color: #080;">No longer listed: {{ offenders.gone_count }}</div>
+    {% endif %}
+    {% if not offenders.new_count and not offenders.gone_count %}
+      <div style="color: #666;">No changes since yesterday.</div>
+    {% endif %}
+  {% endif %}
+
+  <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0 12px;">
+  <div style="color: #999; font-size: 11px;">
+    Data: Montgomery County open data portal; Maryland sex offender registry (icrimewatch.net).
+    Socrata crime data often lags by several days. Missing sections mean the source had no data or was unavailable.
+    {% if ui_url %}Explorer: <a href="{{ ui_url }}">{{ ui_url }}</a>{% endif %}
+  </div>
+</body>
+</html>

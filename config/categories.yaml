@@ -1,0 +1,25 @@
+# Maps MoCo crime `crimename1` values to a coarse display group.
+# Unknown values default to "Other".
+groups:
+  Violent:
+    - "Crime Against Person"
+    - "Assault"
+    - "Homicide"
+    - "Robbery"
+    - "Sex Offense"
+  Property:
+    - "Crime Against Property"
+    - "Burglary"
+    - "Larceny"
+    - "Motor Vehicle Theft"
+    - "Vandalism"
+    - "Arson"
+  Drug:
+    - "Drug/Narcotic"
+    - "Drug Violation"
+  Traffic:
+    - "Traffic"
+    - "DUI"
+  Other:
+    - "Crime Against Society"
+    - "All Other Offenses"

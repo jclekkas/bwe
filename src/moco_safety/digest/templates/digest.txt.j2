@@ -1,0 +1,67 @@
+MoCo {{ zip }} — Daily Safety Digest
+{{ date }} (generated {{ generated_at }})
+{% if ui_url %}Explorer: {{ ui_url }}{% endif %}
+
+=== Crime (last 24h) [{{ crime.status }}] ===
+{% if crime.note %}{{ crime.note }}
+{% endif %}
+{% if crime.status == 'error' %}
+Source unavailable: {{ crime.note }}
+{% elif not crime.rows %}
+No new crime incidents in the last 24 hours.
+{% else %}
+{% for group, items in crime.by_category.items() %}
+-- {{ group }} ({{ items|length }}) --
+{% for i in items %}  [{{ i.occurred_at or '—' }}] {{ i.description }}{% if i.subcategory %} — {{ i.subcategory }}{% endif %}{% if i.address %}
+    {{ i.address }}{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+=== Police Dispatched (last 24h) [{{ dispatched.status }}] ===
+{% if dispatched.note %}{{ dispatched.note }}
+{% endif %}
+{% if dispatched.status == 'error' %}
+Source unavailable: {{ dispatched.note }}
+{% elif not dispatched.rows %}
+No dispatched calls in the last 24 hours.
+{% else %}
+{% for i in dispatched.rows %}  [{{ i.occurred_at or '—' }}] {{ i.description }}{% if i.address %}
+    {{ i.address }}{% endif %}
+{% endfor %}
+{% endif %}
+
+=== Fire / EMS [{{ fire_ems.status }}] ===
+Note: MCFRS publishes station-daily aggregates only; no individual call addresses.
+{% if fire_ems.station_summary %}
+{% for s in fire_ems.station_summary %}  Station {{ s.station }} ({{ s.date }}): {{ s.ems_count }} EMS, {{ s.fire_count }} fire
+{% endfor %}
+{% else %}
+No station activity reported in the window.
+{% endif %}
+{% if fire_ems.overdoses %}
+
+Overdoses (last 7d):
+{% for i in fire_ems.overdoses %}  [{{ i.occurred_at or '—' }}] {{ i.description }}{% if i.address %} — {{ i.address }}{% endif %}
+{% endfor %}
+{% endif %}
+
+=== Sex Offender Registry (ZIP {{ zip }}) [{{ offenders.status }}] ===
+{% if offenders.status == 'error' %}
+Registry unavailable right now. See explorer for last known list.
+{% else %}
+Total listed: {{ offenders.total }}
+{% if offenders.new_count %}
+New since yesterday: {{ offenders.new_count }}
+{% for o in offenders.new %}  - {{ o.name }} — {{ o.address }} ({{ o.profile_url }})
+{% endfor %}
+{% endif %}
+{% if offenders.gone_count %}No longer listed: {{ offenders.gone_count }}
+{% endif %}
+{% if not offenders.new_count and not offenders.gone_count %}No changes since yesterday.
+{% endif %}
+{% endif %}
+
+---
+Data: Montgomery County open data portal; Maryland sex offender registry (icrimewatch.net).
+Socrata crime data often lags by several days.

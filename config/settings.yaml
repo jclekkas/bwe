@@ -1,0 +1,34 @@
+zip: "20874"
+center: { lat: 39.17, lon: -77.24 }
+bbox:
+  north: 39.22
+  south: 39.14
+  east: -77.18
+  west: -77.30
+windows:
+  digest_hours: 24
+  ui_days: 7
+  history_days: 30
+sources:
+  crime:
+    enabled: true
+    dataset: "icn6-v9z3"
+    row_url: "https://data.montgomerycountymd.gov/Public-Safety/Crime/icn6-v9z3"
+  dispatched:
+    enabled: true
+    dataset: "98cc-bc7d"
+    row_url: "https://data.montgomerycountymd.gov/Public-Safety/Police-Dispatched-Incidents/98cc-bc7d"
+  fire_ems:
+    enabled: true
+    station_dataset: "v68m-9rt9"
+    overdose_dataset: "4wcf-kdya"
+    stations: [29, 33]
+  offenders:
+    enabled: true
+    agency_id: "54438"
+    rate_limit_seconds: 2.0
+    cache_ttl_days: 7
+digest:
+  subject_prefix: "MoCo 20874 Daily Digest"
+  empty_section_behavior: "show"
+  ui_url: ""  # filled in after Pages is enabled; digest falls back to repo link

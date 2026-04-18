@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MoCo 20874 — Neighborhood Safety Explorer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">MoCo <span>20874</span> / Safety Explorer</div>
+    <div class="meta">
+      <span id="data-as-of">loading…</span>
+      <span id="source-health"></span>
+    </div>
+  </header>
+
+  <main>
+    <aside class="filters">
+      <h2>Filters</h2>
+
+      <label class="field">
+        <span>Time range</span>
+        <select id="time-range">
+          <option value="24">Last 24 hours</option>
+          <option value="72">Last 3 days</option>
+          <option value="168" selected>Last 7 days</option>
+          <option value="720">Last 30 days</option>
+          <option value="0">All loaded</option>
+        </select>
+      </label>
+
+      <fieldset class="field">
+        <legend>Sources</legend>
+        <label><input type="checkbox" class="src" value="crime" checked> Crime</label>
+        <label><input type="checkbox" class="src" value="dispatched" checked> Dispatched</label>
+        <label><input type="checkbox" class="src" value="fire_ems" checked> Fire/EMS</label>
+        <label><input type="checkbox" class="src" value="offenders" checked> Offenders</label>
+      </fieldset>
+
+      <fieldset class="field" id="category-fieldset">
+        <legend>Categories</legend>
+        <div id="categories"></div>
+      </fieldset>
+
+      <label class="field">
+        <span>Search (address / description)</span>
+        <input type="search" id="q" placeholder="e.g. theft, Great Seneca" />
+      </label>
+
+      <label class="field">
+        <input type="checkbox" id="lock-to-map" />
+        Lock list to map viewport
+      </label>
+
+      <button id="reset">Reset filters</button>
+
+      <section class="notes">
+        <h3>Notes</h3>
+        <ul>
+          <li>Crime data from MoCo typically lags several days.</li>
+          <li>Fire/EMS is station-aggregate only; overdoses are individual.</li>
+          <li>Offender addresses may be stale — see last-verified on each pin.</li>
+        </ul>
+      </section>
+    </aside>
+
+    <section class="map-wrap">
+      <div id="map"></div>
+    </section>
+
+    <section class="list-wrap">
+      <h2>Incidents <span id="list-count"></span></h2>
+      <ul id="list"></ul>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

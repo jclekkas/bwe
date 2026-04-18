@@ -1,0 +1,15 @@
+{
+  "generated_at": "1970-01-01T00:00:00+00:00",
+  "zip": "20874",
+  "window_days": 7,
+  "sources": {
+    "crime": {"status": "ok", "note": "no data yet — run the workflow", "count": 0},
+    "dispatched": {"status": "ok", "note": "no data yet", "count": 0},
+    "fire_ems": {"status": "ok", "note": "no data yet", "count": 0},
+    "offenders": {"status": "ok", "note": "no data yet", "count": 0}
+  },
+  "incidents": [],
+  "fire_ems_station_summary": [],
+  "offenders": [],
+  "offenders_stale_copy": []
+}
