@@ -94,44 +94,50 @@ def dispatched_to_incidents(r: FetchResult, settings: Settings) -> list[Incident
     return out
 
 
+def _is_ems(call_type: str) -> bool:
+    c = call_type.lower()
+    return any(k in c for k in ["ems", "medical", "ambulance", "sick", "injury", "overdose", "bleed", "chest", "breath", "cardiac", "fall"])
+
+
 def fire_ems_to_outputs(r: FetchResult, settings: Settings) -> tuple[list[Incident], list[StationSummary]]:
     incidents: list[Incident] = []
-    summaries: list[StationSummary] = []
+    daily: dict[tuple[str, str], dict[str, int]] = {}
 
     meta = r.meta or {}
-    for s in meta.get("station_rows", []):
-        station_id = ""
-        for k in ["station_number", "station", "station_name", "station_id", "stationnumber", "stationid"]:
-            if k in s and s[k]:
-                station_id = str(s[k])
-                break
-        date_val = ""
-        for k in ["date", "incident_date", "report_date", "date_of_activity"]:
-            if k in s and s[k]:
-                date_val = str(s[k])
-                break
-        ems = 0
-        for k in ["ems_count", "ems", "ems_calls", "ems_incidents"]:
-            try:
-                if k in s and s[k] is not None:
-                    ems = int(float(s[k]))
-                    break
-            except (ValueError, TypeError):
-                continue
-        fire = 0
-        for k in ["fire_count", "fire", "fire_calls", "fire_incidents"]:
-            try:
-                if k in s and s[k] is not None:
-                    fire = int(float(s[k]))
-                    break
-            except (ValueError, TypeError):
-                continue
-        summaries.append(StationSummary(
-            station=station_id or "?",
-            date=date_val,
-            ems_count=ems,
-            fire_count=fire,
+    for rec in meta.get("station_rows", []):
+        station_id = str(rec.get("fire_station_number") or rec.get("fire_station") or "?")
+        date_val = str(rec.get("date") or "")[:10]
+        call_type = str(rec.get("call_type_description") or "Fire/EMS call")
+        time_val = str(rec.get("time") or "")
+        occurred_at = f"{date_val}T{time_val}" if date_val and time_val else (date_val or None)
+
+        lat, lon = parse_latlon(rec, "location")
+        incident_id = str(rec.get("incident_number") or rec.get(":id") or f"fe-{len(incidents)}")
+        is_ems = _is_ems(call_type)
+        incidents.append(Incident(
+            id=f"fire_ems-{incident_id}",
+            source="fire_ems",
+            category="EMS" if is_ems else "Fire",
+            subcategory=call_type,
+            description=call_type,
+            occurred_at=occurred_at,
+            reported_at=None,
+            lat=lat,
+            lon=lon,
+            address=_nonnull(rec.get("station_address") or ""),
+            zip_code=settings.zip,
+            raw_url="",
+            raw=rec,
         ))
+
+        key = (station_id, date_val)
+        bucket = daily.setdefault(key, {"ems": 0, "fire": 0})
+        bucket["ems" if is_ems else "fire"] += 1
+
+    summaries: list[StationSummary] = [
+        StationSummary(station=st, date=dt, ems_count=b["ems"], fire_count=b["fire"])
+        for (st, dt), b in sorted(daily.items())
+    ]
 
     for rec in meta.get("overdose_rows", []):
         lat, lon = parse_latlon(rec, "latitude", "longitude")
