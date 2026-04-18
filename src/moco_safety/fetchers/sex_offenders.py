@@ -4,27 +4,26 @@ import re
 from datetime import datetime
 from urllib.parse import urljoin, urlparse
 
+import requests
 from bs4 import BeautifulSoup
 
 from ..config import CACHE_DIR, Settings
 from ..models import FetchResult
 from ..util.cache import HtmlCache, JsonCache
-from ..util.http import RateLimiter, get
+from ..util.http import RateLimiter, USER_AGENT
 
 # Maryland Sex Offender Registry (DPSCS WebSOR). Public, updated daily.
-# HTTP (not HTTPS): the dpscs.state.md.us cert fails handshake from GitHub
-# runners; the canonical search URL cited by web sources is http://.
-BASE = "http://www.dpscs.state.md.us/sorSearch/"
-SEARCH_URL = BASE + "search.do"
+# The site is a Java Struts app that requires an agreement-checkbox cookie
+# (CHECKBOX_1=on) to be set before search.do will return real results, and it
+# tracks the session via JSESSIONID. HTTPS on the dpscs.state.md.us host has
+# a flaky cert chain from some egress networks, so we try HTTP first, fall
+# back to HTTPS with cert verification disabled.
+HTTP_BASE = "http://www.dpscs.state.md.us/sorSearch/"
+HTTPS_BASE = "https://www.dpscs.state.md.us/sorSearch/"
 
 
 class SexOffenderFetcher:
-    """Scrapes the Maryland state DPSCS sex-offender registry for a given ZIP.
-
-    Tries several parameter shapes since the form spec isn't documented; logs
-    response status + size to the FetchResult note so the snapshot.meta.json
-    surfaces what worked.
-    """
+    """Scrapes the Maryland state DPSCS sex-offender registry for a given ZIP."""
 
     name = "offenders"
 
@@ -40,83 +39,112 @@ class SexOffenderFetcher:
 
         notes: list[str] = []
         results_html = None
-        try:
-            param_attempts = [
-                {"searchType": "byZip", "zip": settings.zip},
-                {"searchType": "byZip", "zipCode": settings.zip},
-                {"searchType": "byZip", "Zip": settings.zip},
-                {"searchType": "byZip", "zip_code": settings.zip},
-            ]
-            for params in param_attempts:
+        used_base = None
+        used_params: dict = {}
+
+        for base in (HTTP_BASE, HTTPS_BASE):
+            verify = base.startswith("https")  # will flip to False on retry
+            for attempt_verify in ([True, False] if not verify else [False]):
                 try:
-                    r = get(SEARCH_URL, params=params, limiter=limiter, timeout=30)
-                    notes.append(f"GET {params}: {r.status_code} ({len(r.text)} bytes)")
-                    if r.status_code == 200 and len(r.text) > 1000:
-                        results_html = r.text
+                    session = self._new_session(base)
+                    # 1) land on agreement page — sets JSESSIONID
+                    r1 = self._req(session, base, limiter=limiter, verify=attempt_verify)
+                    notes.append(f"{base} landing: {r1.status_code} ({len(r1.text)} bytes)")
+                    # 2) accept the agreement checkbox
+                    r2 = self._req(session, base, params={"CHECKBOX_1": "on"},
+                                   limiter=limiter, verify=attempt_verify)
+                    notes.append(f"{base} agree: {r2.status_code} ({len(r2.text)} bytes)")
+                    # 3) search by ZIP — try documented shape
+                    params = {"searchType": "byZip", "zip": settings.zip}
+                    r3 = self._req(session, base + "search.do", params=params,
+                                   limiter=limiter, verify=attempt_verify,
+                                   referer=base)
+                    notes.append(f"{base} search {params}: {r3.status_code} ({len(r3.text)} bytes)")
+                    if r3.status_code == 200 and len(r3.text) > 800:
+                        results_html = r3.text
+                        used_base = base
                         used_params = params
+                        used_session = session
+                        used_verify = attempt_verify
                         break
                 except Exception as e:
-                    notes.append(f"GET {params}: {type(e).__name__}: {str(e)[:80]}")
+                    notes.append(f"{base} (verify={attempt_verify}): {type(e).__name__}: {str(e)[:120]}")
                     continue
+            if results_html is not None:
+                break
 
-            if results_html is None:
-                return FetchResult(self.name, "error", "; ".join(notes))
-
-            profiles = self._parse_results(results_html)
-            notes.append(f"parsed {len(profiles)} profile links")
-            if not profiles:
-                # Could be a legitimate empty result OR a parse-format change.
-                # Save first 600 chars of body for debugging.
-                snippet = re.sub(r"\s+", " ", results_html[:600])
-                notes.append(f"body snippet: {snippet}")
-                return FetchResult(self.name, "ok", "; ".join(notes), records=[],
-                                   meta={"used_params": used_params})
-
-            offenders: list[dict] = []
-            for p in profiles:
-                profile_url = p["profile_url"]
-                html = html_cache.get(profile_url)
-                if html is None:
-                    try:
-                        rp = get(profile_url, limiter=limiter)
-                        html = rp.text
-                        html_cache.put(profile_url, html)
-                    except Exception as e:
-                        notes.append(f"profile {p['id']}: {type(e).__name__}")
-                        continue
-                details = self._parse_profile(html)
-                if details.get("lat") is None and details.get("address"):
-                    details["lat"], details["lon"] = self._geocode(
-                        details["address"], geocode, limiter
-                    )
-                offenders.append({**p, **details})
-
-            return FetchResult(
-                self.name, "ok",
-                f"{len(offenders)} offenders | {'; '.join(notes)}",
-                records=offenders,
-                meta={"used_params": used_params, "zip": settings.zip},
-            )
-        except Exception as e:
-            notes.append(f"{type(e).__name__}: {str(e)[:200]}")
+        if results_html is None:
             return FetchResult(self.name, "error", "; ".join(notes))
 
-    def _parse_results(self, html: str) -> list[dict]:
+        profiles = self._parse_results(results_html, used_base)
+        notes.append(f"parsed {len(profiles)} profile links")
+        if not profiles:
+            snippet = re.sub(r"\s+", " ", results_html[:800])
+            notes.append(f"body snippet: {snippet}")
+            return FetchResult(self.name, "ok", "; ".join(notes), records=[],
+                               meta={"used_params": used_params, "used_base": used_base})
+
+        offenders: list[dict] = []
+        for p in profiles:
+            profile_url = p["profile_url"]
+            html = html_cache.get(profile_url)
+            if html is None:
+                try:
+                    rp = self._req(used_session, profile_url, limiter=limiter,
+                                   verify=used_verify, referer=used_base + "search.do")
+                    html = rp.text
+                    html_cache.put(profile_url, html)
+                except Exception as e:
+                    notes.append(f"profile {p['id']}: {type(e).__name__}")
+                    continue
+            details = self._parse_profile(html, used_base)
+            if details.get("lat") is None and details.get("address"):
+                details["lat"], details["lon"] = self._geocode(
+                    details["address"], geocode, limiter
+                )
+            offenders.append({**p, **details})
+
+        return FetchResult(
+            self.name, "ok",
+            f"{len(offenders)} offenders | {'; '.join(notes)}",
+            records=offenders,
+            meta={"used_params": used_params, "used_base": used_base, "zip": settings.zip},
+        )
+
+    def _new_session(self, base: str) -> requests.Session:
+        s = requests.Session()
+        s.headers.update({
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        })
+        return s
+
+    def _req(self, session, url, *, params=None, limiter=None, timeout=30,
+             verify=True, referer=None):
+        if limiter is not None:
+            limiter.wait()
+        headers = {}
+        if referer:
+            headers["Referer"] = referer
+        return session.get(url, params=params, timeout=timeout, verify=verify,
+                           headers=headers, allow_redirects=True)
+
+    def _parse_results(self, html: str, base: str) -> list[dict]:
         soup = BeautifulSoup(html, "html.parser")
         out: list[dict] = []
-        # Try to find detail links — DPSCS uses search.do?searchType=detail or
-        # offenderProfile.do or similar. Be permissive about the link target.
         for a in soup.select("a[href]"):
             href = a.get("href", "")
             if not href:
                 continue
-            if not any(token in href.lower() for token in ["detail", "profile", "offender", "sornum", "id="]):
+            hl = href.lower()
+            if not any(t in hl for t in ["detail", "profile", "offender", "sornum", "id="]):
                 continue
-            url = urljoin(BASE, href)
-            # Skip same-page anchors
+            url = urljoin(base, href)
             if not urlparse(url).netloc:
                 continue
-            # Extract an id from the URL query string if possible
             m = re.search(r"(?:sorNum|offenderId|id|num)=([A-Za-z0-9_-]+)", href, re.I)
             ofndr_id = m.group(1) if m else url
             name = a.get_text(" ", strip=True)
@@ -127,21 +155,16 @@ class SexOffenderFetcher:
             out.append({"id": str(ofndr_id), "name": name, "profile_url": url})
         return out
 
-    def _parse_profile(self, html: str) -> dict:
+    def _parse_profile(self, html: str, base: str) -> dict:
         soup = BeautifulSoup(html, "html.parser")
         text = soup.get_text("\n", strip=True)
         out: dict = {
-            "address": "",
-            "zip_code": "",
-            "offenses": [],
-            "last_verified": None,
-            "photo_url": None,
-            "lat": None,
-            "lon": None,
+            "address": "", "zip_code": "", "offenses": [],
+            "last_verified": None, "photo_url": None, "lat": None, "lon": None,
         }
         img = soup.find("img", src=re.compile(r"photo|offender|sor", re.I))
         if img and img.get("src"):
-            out["photo_url"] = urljoin(BASE, img["src"])
+            out["photo_url"] = urljoin(base, img["src"])
 
         addr_match = re.search(
             r"([0-9][^\n]+?,\s*[A-Z][A-Za-z .]+,\s*MD\s*\d{5})", text
@@ -168,11 +191,12 @@ class SexOffenderFetcher:
         if cached:
             return cached.get("lat"), cached.get("lon")
         try:
-            r = get(
+            import requests as _rq
+            r = _rq.get(
                 "https://nominatim.openstreetmap.org/search",
                 params={"q": address, "format": "json", "limit": 1, "countrycodes": "us"},
-                headers={"Accept": "application/json"},
-                limiter=limiter,
+                headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+                timeout=20,
             )
             data = r.json()
             if data:
