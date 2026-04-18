@@ -230,6 +230,38 @@ section.map-wrap { position: relative; }
 .search-wrap .clear:hover { color: var(--accent); }
 .search-wrap .clear[hidden] { display: none; }
 
+/* Address autocomplete dropdown (Nominatim) */
+.suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.suggest[hidden] { display: none; }
+.suggest li {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--fg);
+  border-bottom: 1px solid var(--border);
+}
+.suggest li:last-child { border-bottom: 0; }
+.suggest li:hover, .suggest li.active {
+  background: var(--panel);
+  color: var(--accent-2);
+}
+.suggest li .pin { color: var(--muted); margin-right: 6px; }
+
 /* Active filter summary */
 #filter-summary {
   color: var(--muted);

@@ -18,8 +18,16 @@ from ..util.http import RateLimiter, USER_AGENT
 # tracks the session via JSESSIONID. HTTPS on the dpscs.state.md.us host has
 # a flaky cert chain from some egress networks, so we try HTTP first, fall
 # back to HTTPS with cert verification disabled.
-HTTP_BASE = "http://www.dpscs.state.md.us/sorSearch/"
-HTTPS_BASE = "https://www.dpscs.state.md.us/sorSearch/"
+# The non-www variant is what search engines and DPSCS itself resolve to in
+# 2026 (e.g. https://dpscs.state.md.us/sorSearch/search.do?searchType=byZip&zip=21144).
+# The www.* variant 404s on /sorSearch/. Try both, HTTPS first now that the
+# host is cited with HTTPS.
+BASES = [
+    "https://dpscs.state.md.us/sorSearch/",
+    "http://dpscs.state.md.us/sorSearch/",
+    "https://www.dpscs.state.md.us/sorSearch/",
+    "http://www.dpscs.state.md.us/sorSearch/",
+]
 
 
 class SexOffenderFetcher:
@@ -42,9 +50,11 @@ class SexOffenderFetcher:
         used_base = None
         used_params: dict = {}
 
-        for base in (HTTP_BASE, HTTPS_BASE):
-            verify = base.startswith("https")  # will flip to False on retry
-            for attempt_verify in ([True, False] if not verify else [False]):
+        for base in BASES:
+            # For HTTPS try verify=True first, then verify=False (flaky cert).
+            # For HTTP verify is meaningless; use a single False pass.
+            verify_attempts = [True, False] if base.startswith("https") else [False]
+            for attempt_verify in verify_attempts:
                 try:
                     session = self._new_session(base)
                     # 1) land on agreement page — sets JSESSIONID

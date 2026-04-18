@@ -66,8 +66,10 @@
       <label class="field">
         <span>Search (address / description / category)</span>
         <span class="search-wrap">
-          <input type="search" id="q" placeholder="e.g. theft, Germantown Rd, 19400 great seneca" />
+          <input type="search" id="q" placeholder="e.g. theft, Germantown Rd, 19400 great seneca"
+                 autocomplete="off" spellcheck="false" />
           <button type="button" class="clear" id="q-clear" hidden aria-label="Clear search">&times;</button>
+          <ul id="q-suggest" class="suggest" role="listbox" hidden></ul>
         </span>
       </label>
 
