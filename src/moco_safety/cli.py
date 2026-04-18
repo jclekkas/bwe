@@ -76,7 +76,6 @@ def cmd_digest(args: argparse.Namespace) -> int:
 
     if args.send:
         sender.send(subject, html, text)
-        print("sent", file=sys.stderr)
     return 0
 
 

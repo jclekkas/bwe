@@ -61,23 +61,33 @@ def dispatched_to_incidents(r: FetchResult, settings: Settings) -> list[Incident
     for rec in r.records:
         lat, lon = parse_latlon(rec, "latitude", "longitude")
         if lat is None:
-            lat, lon = parse_latlon(rec, "location")
-        desc = rec.get("incident_type") or rec.get("description") or "Dispatched call"
+            lat, lon = parse_latlon(rec, "geolocation")
+        desc = (
+            rec.get("initial_type")
+            or rec.get("close_type")
+            or rec.get("disposition_desc")
+            or rec.get("incident_type")
+            or "Dispatched call"
+        )
         incident_id = str(
-            rec.get("incident_id") or rec.get(":id") or rec.get("event_id") or f"d-{len(out)}"
+            rec.get("incident_id") or rec.get(":id") or rec.get("cr_number") or f"d-{len(out)}"
         )
         out.append(Incident(
             id=f"dispatched-{incident_id}",
             source="dispatched",
             category="Dispatched",
-            subcategory=_nonnull(rec.get("incident_type_category") or rec.get("priority") or ""),
+            subcategory=_nonnull(rec.get("priority") or rec.get("close_type") or ""),
             description=_nonnull(desc),
-            occurred_at=rec.get("start_date_time") or rec.get("dispatch_date_time"),
-            reported_at=rec.get("end_date_time"),
+            occurred_at=(
+                rec.get("start_time")
+                or rec.get("start_date_time")
+                or rec.get("dispatch_date_time")
+            ),
+            reported_at=rec.get("end_time") or rec.get("end_date_time"),
             lat=lat,
             lon=lon,
-            address=_nonnull(rec.get("location_address") or rec.get("address") or ""),
-            zip_code=settings.zip,
+            address=_nonnull(rec.get("address") or rec.get("location_address") or ""),
+            zip_code=_nonnull(rec.get("zip")) or settings.zip,
             raw_url=_row_url(base, incident_id),
             raw=rec,
         ))

@@ -37,29 +37,49 @@ class FireEmsFetcher:
         try:
             if stations:
                 station_list = ", ".join(str(s) for s in stations)
-                try:
-                    station_rows = client.get(
-                        cfg["station_dataset"],
-                        where=(
-                            f"station_number in({station_list})"
-                            f" AND date >= '{since.strftime('%Y-%m-%d')}'"
-                        ),
-                        order="date DESC",
-                        limit=5000,
-                    )
-                except Exception as e:
-                    notes.append(f"station feed: {type(e).__name__}: {e}")
+                station_date = since.strftime("%Y-%m-%d")
+                # Try a few column-name variants since MoCo datasets vary.
+                station_attempts = [
+                    f"station_number in({station_list}) AND date >= '{station_date}'",
+                    f"station in({station_list}) AND date >= '{station_date}'",
+                    f"station_number in({station_list})",
+                    f"station in({station_list})",
+                ]
+                for where in station_attempts:
+                    try:
+                        station_rows = client.get(
+                            cfg["station_dataset"],
+                            where=where,
+                            limit=5000,
+                        )
+                        notes.append(f"stations via: {where[:40]}...")
+                        break
+                    except Exception as e:
+                        notes.append(f"stations try: {type(e).__name__}: {str(e)[:80]}")
+                        continue
 
-            try:
-                # Overdose dataset has individual incidents with lat/lon
-                overdose_rows = client.get(
-                    cfg["overdose_dataset"],
-                    where=f"incident_date_time >= '{since.strftime('%Y-%m-%dT%H:%M:%S')}'",
-                    order="incident_date_time DESC",
-                    limit=2000,
-                )
-            except Exception as e:
-                notes.append(f"overdose feed: {type(e).__name__}: {e}")
+            since_iso = since.strftime("%Y-%m-%dT%H:%M:%S")
+            overdose_attempts = [
+                f"incident_date_time >= '{since_iso}'",
+                f"date >= '{since_iso}'",
+                f"incident_date >= '{since.strftime('%Y-%m-%d')}'",
+                None,  # unfiltered, let the normalizer handle date parsing
+            ]
+            for where in overdose_attempts:
+                try:
+                    if where is None:
+                        overdose_rows = client.get(cfg["overdose_dataset"], limit=2000)
+                    else:
+                        overdose_rows = client.get(
+                            cfg["overdose_dataset"],
+                            where=where,
+                            limit=2000,
+                        )
+                    notes.append(f"overdoses via: {where or 'no filter'}")
+                    break
+                except Exception as e:
+                    notes.append(f"overdoses try: {type(e).__name__}: {str(e)[:80]}")
+                    continue
 
             if not station_rows and not overdose_rows and notes:
                 status = "error"
