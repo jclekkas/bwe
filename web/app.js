@@ -99,7 +99,13 @@ function matches(incident, f) {
   if (!within(incident.occurred_at, f.hours)) return false;
   if (f.categories.size && !f.categories.has(incident.category)) return false;
   if (f.q) {
-    const hay = `${incident.description || ""} ${incident.address || ""}`.toLowerCase();
+    const hay = [
+      incident.description,
+      incident.address,
+      incident.category,
+      incident.subcategory,
+      incident.source,
+    ].filter(Boolean).join(" ").toLowerCase();
     if (!hay.includes(f.q)) return false;
   }
   return true;
@@ -109,7 +115,12 @@ function visibleIncidents(f) {
   const snap = state.snapshot;
   const incidents = (snap.incidents || []).filter((i) => matches(i, f));
   const offenders = f.sources.has("offenders")
-    ? (snap.offenders || []).filter((o) => !f.q || `${o.name} ${o.address}`.toLowerCase().includes(f.q))
+    ? (snap.offenders || []).filter((o) => {
+        if (!f.q) return true;
+        const hay = [o.name, o.address, (o.offenses || []).join(" "), "offender"]
+          .filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(f.q);
+      })
     : [];
   return { incidents, offenders };
 }
@@ -248,9 +259,10 @@ async function main() {
   renderHeader(snap);
   renderCategories(snap.incidents || []);
 
-  document.querySelectorAll(".src, #time-range, #q").forEach((el) =>
-    el.addEventListener("input", refresh)
-  );
+  document.querySelectorAll(".src, #time-range, #q").forEach((el) => {
+    el.addEventListener("input", refresh);
+    el.addEventListener("change", refresh);
+  });
   document.getElementById("categories").addEventListener("change", refresh);
   document.getElementById("lock-to-map").addEventListener("change", (e) => {
     state.lockToMap = e.target.checked;
