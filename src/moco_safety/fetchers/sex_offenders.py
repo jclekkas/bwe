@@ -18,16 +18,21 @@ from ..util.http import RateLimiter, USER_AGENT
 # tracks the session via JSESSIONID. HTTPS on the dpscs.state.md.us host has
 # a flaky cert chain from some egress networks, so we try HTTP first, fall
 # back to HTTPS with cert verification disabled.
-# The non-www variant is what search engines and DPSCS itself resolve to in
-# 2026 (e.g. https://dpscs.state.md.us/sorSearch/search.do?searchType=byZip&zip=21144).
-# The www.* variant 404s on /sorSearch/. Try both, HTTPS first now that the
-# host is cited with HTTPS.
+# Maryland's sex-offender registry is hosted on OffenderWatch (DPSCS is
+# agency 56622). All public-facing hosts for this registry —
+# dpscs.state.md.us, icrimewatch.net, communitynotification.com — share a
+# WAF that blocks GitHub runner IP ranges with a 1704-byte 403. We keep a
+# best-effort DPSCS attempt so the fetcher works the moment the block is
+# lifted, but when it fails we degrade gracefully: the UI displays a
+# manual-registry link instead of an empty offender panel.
 BASES = [
-    "https://dpscs.state.md.us/sorSearch/",
-    "http://dpscs.state.md.us/sorSearch/",
     "https://www.dpscs.state.md.us/sorSearch/",
     "http://www.dpscs.state.md.us/sorSearch/",
 ]
+# Public manual-search URL surfaced in the UI when all automated attempts fail.
+MANUAL_URL = (
+    "https://www.dpscs.state.md.us/sorSearch/search.do?searchType=byZip&zip={zip}"
+)
 
 
 class SexOffenderFetcher:
@@ -59,7 +64,8 @@ class SexOffenderFetcher:
                     session = self._new_session(base)
                     # 1) land on agreement page — sets JSESSIONID
                     r1 = self._req(session, base, limiter=limiter, verify=attempt_verify)
-                    notes.append(f"{base} landing: {r1.status_code} ({len(r1.text)} bytes)")
+                    snippet = re.sub(r"\s+", " ", r1.text[:300])
+                    notes.append(f"{base} landing: {r1.status_code} ({len(r1.text)}B) [{snippet}]")
                     # 2) accept the agreement checkbox
                     r2 = self._req(session, base, params={"CHECKBOX_1": "on"},
                                    limiter=limiter, verify=attempt_verify)
@@ -84,7 +90,18 @@ class SexOffenderFetcher:
                 break
 
         if results_html is None:
-            return FetchResult(self.name, "error", "; ".join(notes))
+            # Graceful degrade: all automated targets are WAF-blocked. Tell
+            # the UI via meta.manual_url so it can render a registry link
+            # rather than an empty panel. Surface status=degraded (not
+            # error) so the digest doesn't treat the whole source as broken.
+            return FetchResult(
+                self.name, "degraded",
+                "automated access blocked by registry WAF; manual link provided | "
+                + "; ".join(notes),
+                records=[],
+                meta={"manual_url": MANUAL_URL.format(zip=settings.zip),
+                      "blocked": True, "zip": settings.zip},
+            )
 
         profiles = self._parse_results(results_html, used_base)
         notes.append(f"parsed {len(profiles)} profile links")
