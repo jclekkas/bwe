@@ -37,22 +37,6 @@ def _group_by(items: list[dict], key: str) -> dict[str, list[dict]]:
     return out
 
 
-def _offender_diff(current: list[dict], previous: list[dict]) -> dict[str, Any]:
-    cur_ids = {o.get("id") for o in current}
-    prev_ids = {o.get("id") for o in previous}
-    new_ids = cur_ids - prev_ids
-    gone_ids = prev_ids - cur_ids
-    new = [o for o in current if o.get("id") in new_ids]
-    gone = [o for o in previous if o.get("id") in gone_ids]
-    return {
-        "new": new,
-        "gone": gone,
-        "new_count": len(new),
-        "gone_count": len(gone),
-        "total": len(current),
-    }
-
-
 def build_sections(
     snapshot: dict,
     settings: Settings,
@@ -67,9 +51,6 @@ def build_sections(
     crime = [i for i in incidents if i["source"] == "crime" and _within_hours(i.get("occurred_at"), hours, now)]
     dispatched = [i for i in incidents if i["source"] == "dispatched" and _within_hours(i.get("occurred_at"), hours, now)]
     overdoses = [i for i in incidents if i["source"] == "fire_ems" and _within_hours(i.get("occurred_at"), 7 * 24, now)]
-
-    prev_offenders = (previous or {}).get("offenders") or []
-    off_diff = _offender_diff(snapshot.get("offenders", []), prev_offenders)
 
     sources = snapshot.get("sources", {})
 
@@ -95,11 +76,6 @@ def build_sections(
             "note": sources.get("fire_ems", {}).get("note", ""),
             "station_summary": snapshot.get("fire_ems_station_summary", []),
             "overdoses": overdoses,
-        },
-        "offenders": {
-            "status": sources.get("offenders", {}).get("status", "error"),
-            "note": sources.get("offenders", {}).get("note", ""),
-            **off_diff,
         },
     }
 

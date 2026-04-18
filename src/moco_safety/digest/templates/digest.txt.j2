@@ -46,22 +46,6 @@ Overdoses (last 7d):
 {% endfor %}
 {% endif %}
 
-=== Sex Offender Registry (ZIP {{ zip }}) [{{ offenders.status }}] ===
-{% if offenders.status == 'error' %}
-Registry unavailable right now. See explorer for last known list.
-{% else %}
-Total listed: {{ offenders.total }}
-{% if offenders.new_count %}
-New since yesterday: {{ offenders.new_count }}
-{% for o in offenders.new %}  - {{ o.name }} — {{ o.address }} ({{ o.profile_url }})
-{% endfor %}
-{% endif %}
-{% if offenders.gone_count %}No longer listed: {{ offenders.gone_count }}
-{% endif %}
-{% if not offenders.new_count and not offenders.gone_count %}No changes since yesterday.
-{% endif %}
-{% endif %}
-
 ---
-Data: Montgomery County open data portal; Maryland sex offender registry (icrimewatch.net).
+Data: Montgomery County open data portal.
 Socrata crime data often lags by several days.

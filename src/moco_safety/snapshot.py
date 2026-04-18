@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from .config import DATA_DIR, Settings
-from .models import FetchResult, Incident, Offender, StationSummary
+from .models import FetchResult, Incident, StationSummary
 from .normalize import (
     crime_to_incidents,
     dispatched_to_incidents,
     fire_ems_to_outputs,
-    offenders_to_records,
 )
 
 SNAPSHOT_PATH = DATA_DIR / "snapshot.json"
@@ -28,8 +27,6 @@ class Snapshot:
     sources: dict[str, Any] = field(default_factory=dict)
     incidents: list[dict] = field(default_factory=list)
     fire_ems_station_summary: list[dict] = field(default_factory=list)
-    offenders: list[dict] = field(default_factory=list)
-    offenders_stale_copy: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -42,7 +39,6 @@ def build_snapshot(
 ) -> Snapshot:
     incidents: list[Incident] = []
     summaries: list[StationSummary] = []
-    offenders: list[Offender] = []
 
     if "crime" in results:
         incidents.extend(crime_to_incidents(results["crime"], settings, cat_map))
@@ -52,8 +48,6 @@ def build_snapshot(
         inc, summ = fire_ems_to_outputs(results["fire_ems"], settings)
         incidents.extend(inc)
         summaries.extend(summ)
-    if "offenders" in results:
-        offenders.extend(offenders_to_records(results["offenders"]))
 
     sources_meta = {
         name: {
@@ -61,8 +55,6 @@ def build_snapshot(
             "note": r.note,
             "count": len(r.records),
             **({"granularity": r.meta["granularity"]} if r.meta.get("granularity") else {}),
-            **({"manual_url": r.meta["manual_url"]} if r.meta.get("manual_url") else {}),
-            **({"blocked": True} if r.meta.get("blocked") else {}),
         }
         for name, r in results.items()
     }
@@ -74,7 +66,6 @@ def build_snapshot(
         sources=sources_meta,
         incidents=[i.to_dict() for i in incidents],
         fire_ems_station_summary=[s.to_dict() for s in summaries],
-        offenders=[o.to_dict() for o in offenders],
     )
 
 
@@ -92,7 +83,6 @@ def save(snapshot: Snapshot) -> None:
                 "counts": {
                     "incidents": len(snapshot.incidents),
                     "station_summary": len(snapshot.fire_ems_station_summary),
-                    "offenders": len(snapshot.offenders),
                 },
             },
             f,
@@ -124,12 +114,3 @@ def load_previous() -> dict | None:
         return json.loads(SNAPSHOT_PATH.read_text())
     except Exception:
         return None
-
-
-def apply_offender_fallback(current: Snapshot, previous: dict | None, offenders_status: str) -> None:
-    """If current offender fetch failed or was blocked, carry forward the previous list."""
-    if offenders_status not in ("error", "degraded") or previous is None:
-        return
-    prev_off = previous.get("offenders") or []
-    current.offenders = []
-    current.offenders_stale_copy = prev_off

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .config import Settings
-from .models import FetchResult, Incident, Offender, StationSummary
+from .models import FetchResult, Incident, StationSummary
 from .util.geo import parse_latlon
 
 
@@ -161,21 +161,3 @@ def fire_ems_to_outputs(r: FetchResult, settings: Settings) -> tuple[list[Incide
         ))
 
     return incidents, summaries
-
-
-def offenders_to_records(r: FetchResult) -> list[Offender]:
-    out: list[Offender] = []
-    for rec in r.records:
-        out.append(Offender(
-            id=str(rec.get("id")),
-            name=rec.get("name", ""),
-            address=rec.get("address", ""),
-            zip_code=rec.get("zip_code", ""),
-            offenses=rec.get("offenses", []),
-            last_verified=rec.get("last_verified"),
-            photo_url=rec.get("photo_url"),
-            profile_url=rec.get("profile_url", ""),
-            lat=rec.get("lat"),
-            lon=rec.get("lon"),
-        ))
-    return out

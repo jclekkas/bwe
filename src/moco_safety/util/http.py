@@ -6,8 +6,7 @@ from typing import Optional
 import requests
 
 
-# icrimewatch.net and similar sites block obvious bot UAs with a 403, so pose
-# as a mainstream browser. This is a public-records site with no per-user data.
+# Pose as a mainstream browser; some open-data fronts reject obvious bot UAs.
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "

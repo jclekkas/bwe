@@ -8,7 +8,7 @@
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="" />
-  <link rel="stylesheet" href="./styles.css?v=9" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
 </head>
 <body>
   <header>
@@ -48,11 +48,6 @@
         <label><input type="checkbox" class="src" value="fire_ems" checked> Fire/EMS <span class="tally" data-tally="fire_ems"></span></label>
       </fieldset>
 
-      <fieldset class="field">
-        <legend>Registry overlay</legend>
-        <label><input type="checkbox" id="show-offenders" checked> Show registered offenders on map</label>
-      </fieldset>
-
       <fieldset class="field" id="category-fieldset">
         <legend>Categories</legend>
         <div class="toggle-row">
@@ -87,7 +82,6 @@
         <ul>
           <li>Crime data from MoCo typically lags several days.</li>
           <li>Fire/EMS is station-aggregate only; overdoses are individual.</li>
-          <li>Offender addresses may be stale — see last-verified on each pin.</li>
         </ul>
       </section>
     </aside>
@@ -103,11 +97,6 @@
           <div class="panel-note">Click any row to see the full record. Time range + source filters apply.</div>
           <ul id="list"></ul>
         </div>
-        <div class="panel">
-          <h2>Registered offenders <span id="offender-count"></span></h2>
-          <div class="panel-note">Maryland registry for ZIP 20874. Time range does not apply.</div>
-          <ul id="offender-list"></ul>
-        </div>
       </div>
       <div id="detail" hidden>
         <div class="detail-header">
@@ -121,6 +110,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
-  <script type="module" src="./app.js?v=9"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </body>
 </html>

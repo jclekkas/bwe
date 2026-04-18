@@ -6,8 +6,7 @@ Montgomery County, Maryland — filtered to ZIP **20874** (Germantown).
 - **Data sources**
   - Montgomery County Crime (Socrata `icn6-v9z3`) — filtered by `zip_code`.
   - Police Dispatched Incidents (Socrata `98cc-bc7d`) — filtered by bbox + ZIP polygon.
-  - MCFRS Fire/EMS: station-daily aggregates (`v68m-9rt9`) and individual overdoses (`4wcf-kdya`).
-  - Maryland Sex Offender Registry via `icrimewatch.net` (scraped, politely).
+  - MCFRS Fire/EMS: per-incident rows (`v68m-9rt9`) and individual overdoses (`4wcf-kdya`).
 - **Runtime**: GitHub Actions cron at ~7:15 AM ET.
 - **Email**: SMTP (Gmail app password by default).
 - **UI**: static HTML + Leaflet, served from GitHub Pages; reads the same
@@ -93,18 +92,14 @@ tests/                  # pytest suite (offline, fixtures in tests/fixtures)
   coordinates on the open data portal, only station-daily aggregates.
   Overdoses (`4wcf-kdya`) are the one granular fire-side source. The UI shows
   station counts in the list only; overdoses get map pins.
-- **Sex-offender scraping is fragile**: `icrimewatch.net` has no public API,
-  so if they change their HTML the parser will break. When the fetch errors,
-  the snapshot preserves the previous list as `offenders_stale_copy` so the
-  UI doesn't go blank, and a tracking GitHub issue opens automatically.
 - **Pages eventual consistency**: Pages usually takes 1–10 minutes to publish
   after the cron commits. The UI header shows `generated_at` so staleness is
   visible.
 - **DST drift**: Actions cron is UTC-only. The 11:15 UTC schedule lands at
   ~7:15 AM ET during EDT and ~6:15 AM ET during EST. Acceptable 1 h drift.
 - **Privacy**: the Pages URL is public. Anyone who finds it can see the
-  addresses of crime incidents and offenders. This is personal-use "privacy
-  via obscurity" — do not share the URL publicly.
+  addresses of crime incidents. This is personal-use "privacy via
+  obscurity" — do not share the URL publicly.
 
 ## Troubleshooting
 
