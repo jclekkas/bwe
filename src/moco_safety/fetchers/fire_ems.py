@@ -40,26 +40,42 @@ class FireEmsFetcher:
             # just causes 400s. Both datasets are small enough to pull whole.
             try:
                 station_rows = client.get(cfg["station_dataset"], limit=5000)
-                notes.append(f"stations: {len(station_rows)} rows (unfiltered)")
+                sample_keys = sorted(station_rows[0].keys()) if station_rows else []
+                notes.append(f"stations: {len(station_rows)} rows; columns={sample_keys}")
             except Exception as e:
                 notes.append(f"stations: {type(e).__name__}: {str(e)[:100]}")
 
             try:
                 overdose_rows = client.get(cfg["overdose_dataset"], limit=2000)
-                notes.append(f"overdoses: {len(overdose_rows)} rows (unfiltered)")
+                sample_keys = sorted(overdose_rows[0].keys()) if overdose_rows else []
+                notes.append(f"overdoses: {len(overdose_rows)} rows; columns={sample_keys}")
             except Exception as e:
                 notes.append(f"overdoses: {type(e).__name__}: {str(e)[:100]}")
 
             # Filter stations client-side by station id + date threshold.
             if stations and station_rows:
                 wanted = {str(s) for s in stations}
+                station_keys = ["station_number", "station", "station_name", "station_id", "stationnumber", "stationid"]
                 filtered = []
                 for r in station_rows:
-                    station_id = str(r.get("station_number") or r.get("station") or r.get("station_name") or "")
-                    if station_id in wanted or any(station_id.endswith(s) for s in wanted):
+                    station_id = ""
+                    for k in station_keys:
+                        if k in r and r[k]:
+                            station_id = str(r[k])
+                            break
+                    # also handle numeric "29" vs string "29" vs "Station 29"
+                    matched = False
+                    for s in wanted:
+                        if station_id == s or station_id.endswith(f" {s}") or station_id == f"Station {s}":
+                            matched = True
+                            break
+                    if matched:
                         filtered.append(r)
                 if filtered:
                     station_rows = filtered
+                    notes.append(f"stations filtered to {len(filtered)} rows for stations={sorted(wanted)}")
+                else:
+                    notes.append(f"stations client-filter returned 0 (wanted={sorted(wanted)}, columns tried={station_keys})")
 
             if station_rows or overdose_rows:
                 status = "ok" if overdose_rows else "degraded"

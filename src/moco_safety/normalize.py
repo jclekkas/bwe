@@ -100,11 +100,37 @@ def fire_ems_to_outputs(r: FetchResult, settings: Settings) -> tuple[list[Incide
 
     meta = r.meta or {}
     for s in meta.get("station_rows", []):
+        station_id = ""
+        for k in ["station_number", "station", "station_name", "station_id", "stationnumber", "stationid"]:
+            if k in s and s[k]:
+                station_id = str(s[k])
+                break
+        date_val = ""
+        for k in ["date", "incident_date", "report_date", "date_of_activity"]:
+            if k in s and s[k]:
+                date_val = str(s[k])
+                break
+        ems = 0
+        for k in ["ems_count", "ems", "ems_calls", "ems_incidents"]:
+            try:
+                if k in s and s[k] is not None:
+                    ems = int(float(s[k]))
+                    break
+            except (ValueError, TypeError):
+                continue
+        fire = 0
+        for k in ["fire_count", "fire", "fire_calls", "fire_incidents"]:
+            try:
+                if k in s and s[k] is not None:
+                    fire = int(float(s[k]))
+                    break
+            except (ValueError, TypeError):
+                continue
         summaries.append(StationSummary(
-            station=str(s.get("station_number") or s.get("station") or "?"),
-            date=str(s.get("date") or s.get("incident_date") or ""),
-            ems_count=int(float(s.get("ems_count") or s.get("ems") or 0) or 0),
-            fire_count=int(float(s.get("fire_count") or s.get("fire") or 0) or 0),
+            station=station_id or "?",
+            date=date_val,
+            ems_count=ems,
+            fire_count=fire,
         ))
 
     for rec in meta.get("overdose_rows", []):
