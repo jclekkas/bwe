@@ -39,6 +39,12 @@ jobs:
           cp config/zip_20874.geojson site/zip_20874.geojson
           # Prevent Jekyll from filtering files that start with underscore.
           touch site/.nojekyll
+          # Cache-bust: replace ?v=<static> with ?v=<commit-sha> in index.html
+          # so browsers always fetch the matching pair of HTML + JS + CSS.
+          SHA="${GITHUB_SHA::12}"
+          sed -i -E "s/\?v=[0-9a-f]+/?v=${SHA}/g" site/index.html
+          echo "Cache-busted with SHA=${SHA}"
+          grep '?v=' site/index.html || echo "(no ?v= found in index.html)"
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4

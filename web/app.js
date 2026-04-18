@@ -114,6 +114,14 @@ function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+function byId(id) { return document.getElementById(id); }
+
+function on(id, event, handler) {
+  const el = byId(id);
+  if (!el) { console.warn(`[app] missing #${id}; skipping ${event} listener`); return; }
+  el.addEventListener(event, handler);
+}
+
 function renderHeader(snap) {
   document.getElementById("data-as-of").textContent =
     snap.generated_at ? `Data as of ${fmtTime(snap.generated_at)}` : "No data";
@@ -132,7 +140,8 @@ function renderSourceTallies(incidents) {
 }
 
 function renderFilterSummary(f, visibleCount) {
-  const el = document.getElementById("filter-summary");
+  const el = byId("filter-summary");
+  if (!el) return;
   const labels = [];
   labels.push(`<strong>${visibleCount}</strong> incidents shown`);
   if (f.hours > 0) labels.push(`last ${f.hours >= 24 ? (f.hours / 24) + "d" : f.hours + "h"}`);
@@ -164,12 +173,14 @@ function currentFilters() {
   const sources = new Set(
     [...document.querySelectorAll(".src:checked")].map((x) => x.value)
   );
+  const allCats = document.querySelectorAll(".cat");
+  const categoriesReady = allCats.length > 0;
   const categories = new Set(
     [...document.querySelectorAll(".cat:checked")].map((x) => x.value)
   );
   const q = document.getElementById("q").value;
   const tokens = tokenize(q);
-  return { hours, sources, categories, q, tokens };
+  return { hours, sources, categories, categoriesReady, q, tokens };
 }
 
 function incidentHaystack(i) {
@@ -183,7 +194,9 @@ function offenderHaystack(o) {
 function matchesIncident(i, f) {
   if (!f.sources.has(i.source)) return false;
   if (!within(i.occurred_at, f.hours)) return false;
-  if (f.categories.size && !f.categories.has(i.category)) return false;
+  // No categories selected = show nothing (matches intuitive "None" behavior).
+  // Keep the guard only when the category list hasn't been rendered yet.
+  if (f.categoriesReady && !f.categories.has(i.category || "Other")) return false;
   return matchesAllTokens(incidentHaystack(i), f.tokens);
 }
 
@@ -349,9 +362,10 @@ function refresh() {
   renderOffenderList(offenders);
   renderFilterSummary(f, incidents.length);
 
-  // Toggle visibility of the "clear search" X.
-  const qEl = document.getElementById("q");
-  document.getElementById("q-clear").hidden = !qEl.value;
+  // Toggle visibility of the "clear search" X (defensive — skip if HTML is stale).
+  const qEl = byId("q");
+  const qClear = byId("q-clear");
+  if (qEl && qClear) qClear.hidden = !qEl.value;
 }
 
 async function main() {
@@ -388,9 +402,8 @@ async function main() {
     el.addEventListener("change", refresh);
   });
   wireRefresh(".src, #time-range, #q");
-  document.getElementById("categories").addEventListener("change", refresh);
+  on("categories", "change", refresh);
 
-  // Select all / none shortcuts.
   document.querySelectorAll(".toggle-row button[data-toggle]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const target = btn.dataset.target;
@@ -400,36 +413,35 @@ async function main() {
     });
   });
 
-  // Clear search button.
-  document.getElementById("q-clear").addEventListener("click", () => {
-    document.getElementById("q").value = "";
+  on("q-clear", "click", () => {
+    const q = byId("q");
+    if (q) { q.value = ""; q.focus(); }
     refresh();
-    document.getElementById("q").focus();
   });
-  document.getElementById("show-offenders").addEventListener("change", (e) => {
+  on("show-offenders", "change", (e) => {
     state.showOffenders = e.target.checked;
     if (!state.showOffenders) state.offenderLayer.clearLayers();
     refresh();
   });
-  document.getElementById("lock-to-map").addEventListener("change", (e) => {
+  on("lock-to-map", "change", (e) => {
     state.lockToMap = e.target.checked;
     refresh();
   });
   state.map.on("moveend", () => { if (state.lockToMap) refresh(); });
-  document.getElementById("reset").addEventListener("click", () => {
-    document.getElementById("time-range").value = "168";
-    document.getElementById("q").value = "";
+  on("reset", "click", () => {
+    const tr = byId("time-range"); if (tr) tr.value = "168";
+    const q = byId("q"); if (q) q.value = "";
     document.querySelectorAll(".src, .cat").forEach((el) => (el.checked = true));
-    document.getElementById("show-offenders").checked = true;
+    const so = byId("show-offenders"); if (so) so.checked = true;
     state.showOffenders = true;
-    document.getElementById("lock-to-map").checked = false;
+    const lm = byId("lock-to-map"); if (lm) lm.checked = false;
     state.lockToMap = false;
     refresh();
   });
 
-  // Prevent implicit form-submit on Enter in the search box (no form exists,
-  // but browsers sometimes navigate anyway). Treat Enter as an explicit refresh.
-  document.getElementById("q").addEventListener("keydown", (e) => {
+  // Enter in the search box triggers refresh explicitly (avoids any implicit
+  // form-submit navigation in browsers that wrap lone inputs in a form).
+  on("q", "keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); refresh(); }
   });
 
