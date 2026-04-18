@@ -60,13 +60,42 @@ function within(iso, hours) {
   return delta <= hours * 3600 * 1000;
 }
 
+// Bidirectional street-suffix synonyms. We normalize both query and haystack
+// to the short form so "Germantown Road" matches "GERMANTOWN RD".
+const SUFFIX_MAP = {
+  road: "rd", rd: "rd",
+  street: "st", st: "st",
+  avenue: "ave", ave: "ave", av: "ave",
+  drive: "dr", dr: "dr",
+  boulevard: "blvd", blvd: "blvd",
+  highway: "hwy", hwy: "hwy",
+  parkway: "pkwy", pkwy: "pkwy",
+  place: "pl", pl: "pl",
+  court: "ct", ct: "ct",
+  lane: "ln", ln: "ln",
+  circle: "cir", cir: "cir",
+  terrace: "ter", ter: "ter",
+  way: "way",
+};
+
+function normalize(s) {
+  return (s || "")
+    .toLowerCase()
+    // strip punctuation (commas, periods, ampersands) to help token matching
+    .replace(/[.,&]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => SUFFIX_MAP[t] || t)
+    .join(" ");
+}
+
 function tokenize(q) {
-  return q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return normalize(q).split(/\s+/).filter(Boolean);
 }
 
 function matchesAllTokens(haystack, tokens) {
   if (!tokens.length) return true;
-  const hay = haystack.toLowerCase();
+  const hay = normalize(haystack);
   return tokens.every((t) => hay.includes(t));
 }
 
@@ -93,14 +122,39 @@ function renderHeader(snap) {
   document.getElementById("source-health").textContent = health;
 }
 
+function renderSourceTallies(incidents) {
+  const counts = {};
+  (incidents || []).forEach((i) => { counts[i.source] = (counts[i.source] || 0) + 1; });
+  document.querySelectorAll(".tally[data-tally]").forEach((el) => {
+    const n = counts[el.dataset.tally] || 0;
+    el.textContent = `(${n})`;
+  });
+}
+
+function renderFilterSummary(f, visibleCount) {
+  const el = document.getElementById("filter-summary");
+  const labels = [];
+  labels.push(`<strong>${visibleCount}</strong> incidents shown`);
+  if (f.hours > 0) labels.push(`last ${f.hours >= 24 ? (f.hours / 24) + "d" : f.hours + "h"}`);
+  else labels.push("all time");
+  const srcList = [...f.sources];
+  if (srcList.length && srcList.length < 3) labels.push(`sources: ${srcList.join(", ")}`);
+  if (!srcList.length) labels.push("no sources");
+  if (f.tokens.length) labels.push(`search: ${f.tokens.join(" + ")}`);
+  el.innerHTML = labels.join(" · ");
+}
+
 function renderCategories(incidents) {
-  const cats = new Set();
-  incidents.forEach((i) => cats.add(i.category || "Other"));
+  const counts = {};
+  incidents.forEach((i) => {
+    const c = i.category || "Other";
+    counts[c] = (counts[c] || 0) + 1;
+  });
   const el = document.getElementById("categories");
   el.innerHTML = "";
-  [...cats].sort().forEach((c) => {
+  Object.keys(counts).sort().forEach((c) => {
     const wrap = document.createElement("label");
-    wrap.innerHTML = `<input type="checkbox" class="cat" value="${escapeHtml(c)}" checked> ${escapeHtml(c)}`;
+    wrap.innerHTML = `<input type="checkbox" class="cat" value="${escapeHtml(c)}" checked> ${escapeHtml(c)} <span class="tally">(${counts[c]})</span>`;
     el.appendChild(wrap);
   });
 }
@@ -293,6 +347,11 @@ function refresh() {
 
   renderIncidentList(incidents);
   renderOffenderList(offenders);
+  renderFilterSummary(f, incidents.length);
+
+  // Toggle visibility of the "clear search" X.
+  const qEl = document.getElementById("q");
+  document.getElementById("q-clear").hidden = !qEl.value;
 }
 
 async function main() {
@@ -322,6 +381,7 @@ async function main() {
   state.snapshot = snap;
   renderHeader(snap);
   renderCategories(snap.incidents || []);
+  renderSourceTallies(snap.incidents || []);
 
   const wireRefresh = (sel) => document.querySelectorAll(sel).forEach((el) => {
     el.addEventListener("input", refresh);
@@ -329,6 +389,23 @@ async function main() {
   });
   wireRefresh(".src, #time-range, #q");
   document.getElementById("categories").addEventListener("change", refresh);
+
+  // Select all / none shortcuts.
+  document.querySelectorAll(".toggle-row button[data-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.target;
+      const checked = btn.dataset.toggle === "all";
+      document.querySelectorAll(target).forEach((cb) => (cb.checked = checked));
+      refresh();
+    });
+  });
+
+  // Clear search button.
+  document.getElementById("q-clear").addEventListener("click", () => {
+    document.getElementById("q").value = "";
+    refresh();
+    document.getElementById("q").focus();
+  });
   document.getElementById("show-offenders").addEventListener("change", (e) => {
     state.showOffenders = e.target.checked;
     if (!state.showOffenders) state.offenderLayer.clearLayers();

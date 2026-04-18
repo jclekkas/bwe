@@ -36,9 +36,14 @@
 
       <fieldset class="field">
         <legend>Incident sources</legend>
-        <label><input type="checkbox" class="src" value="crime" checked> Crime</label>
-        <label><input type="checkbox" class="src" value="dispatched" checked> Dispatched</label>
-        <label><input type="checkbox" class="src" value="fire_ems" checked> Fire/EMS</label>
+        <div class="toggle-row">
+          <button type="button" data-toggle="all" data-target=".src">Select all</button>
+          <span class="sep">·</span>
+          <button type="button" data-toggle="none" data-target=".src">None</button>
+        </div>
+        <label><input type="checkbox" class="src" value="crime" checked> Crime <span class="tally" data-tally="crime"></span></label>
+        <label><input type="checkbox" class="src" value="dispatched" checked> Dispatched <span class="tally" data-tally="dispatched"></span></label>
+        <label><input type="checkbox" class="src" value="fire_ems" checked> Fire/EMS <span class="tally" data-tally="fire_ems"></span></label>
       </fieldset>
 
       <fieldset class="field">
@@ -48,13 +53,23 @@
 
       <fieldset class="field" id="category-fieldset">
         <legend>Categories</legend>
+        <div class="toggle-row">
+          <button type="button" data-toggle="all" data-target=".cat">Select all</button>
+          <span class="sep">·</span>
+          <button type="button" data-toggle="none" data-target=".cat">None</button>
+        </div>
         <div id="categories"></div>
       </fieldset>
 
       <label class="field">
-        <span>Search (address / description)</span>
-        <input type="search" id="q" placeholder="e.g. theft, Great Seneca" />
+        <span>Search (address / description / category)</span>
+        <span class="search-wrap">
+          <input type="search" id="q" placeholder="e.g. theft, Germantown Rd, 19400 great seneca" />
+          <button type="button" class="clear" id="q-clear" hidden aria-label="Clear search">&times;</button>
+        </span>
       </label>
+
+      <div id="filter-summary"></div>
 
       <label class="field">
         <input type="checkbox" id="lock-to-map" />
