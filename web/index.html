@@ -35,11 +35,15 @@
       </label>
 
       <fieldset class="field">
-        <legend>Sources</legend>
+        <legend>Incident sources</legend>
         <label><input type="checkbox" class="src" value="crime" checked> Crime</label>
         <label><input type="checkbox" class="src" value="dispatched" checked> Dispatched</label>
         <label><input type="checkbox" class="src" value="fire_ems" checked> Fire/EMS</label>
-        <label><input type="checkbox" class="src" value="offenders" checked> Offenders</label>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>Registry overlay</legend>
+        <label><input type="checkbox" id="show-offenders" checked> Show registered offenders on map</label>
       </fieldset>
 
       <fieldset class="field" id="category-fieldset">
@@ -74,8 +78,16 @@
     </section>
 
     <section class="list-wrap">
-      <h2>Incidents <span id="list-count"></span></h2>
-      <ul id="list"></ul>
+      <div class="panel">
+        <h2>Incidents <span id="list-count"></span></h2>
+        <div class="panel-note">Time range + source filters apply.</div>
+        <ul id="list"></ul>
+      </div>
+      <div class="panel">
+        <h2>Registered offenders <span id="offender-count"></span></h2>
+        <div class="panel-note">Maryland registry for ZIP 20874. Time range does not apply.</div>
+        <ul id="offender-list"></ul>
+      </div>
     </section>
   </main>
 

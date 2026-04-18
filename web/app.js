@@ -23,10 +23,12 @@ const SOURCE_COLORS = {
 
 const state = {
   snapshot: null,
-  markers: null,
+  incidentCluster: null,
+  offenderLayer: null,
   incidentMarkers: [],
   offenderMarkers: [],
   lockToMap: false,
+  showOffenders: true,
   map: null,
 };
 
@@ -44,8 +46,6 @@ function parseIso(iso) {
 }
 
 function snapshotNow() {
-  // Anchor "now" to the snapshot's generated_at so filters work even if the
-  // viewer's clock is far from when the data was collected.
   const snapIso = state.snapshot && state.snapshot.generated_at;
   const d = snapIso ? parseIso(snapIso) : null;
   return d ? d.getTime() : Date.now();
@@ -55,12 +55,19 @@ function within(iso, hours) {
   if (!hours || hours <= 0) return true;
   const d = parseIso(iso);
   if (!d) return false;
-  const anchor = snapshotNow();
-  const delta = anchor - d.getTime();
-  // Negative delta means the record is dated after the snapshot was built —
-  // should not happen in real data but treat it as "now" so it isn't silently dropped.
+  const delta = snapshotNow() - d.getTime();
   if (delta < 0) return true;
   return delta <= hours * 3600 * 1000;
+}
+
+function tokenize(q) {
+  return q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function matchesAllTokens(haystack, tokens) {
+  if (!tokens.length) return true;
+  const hay = haystack.toLowerCase();
+  return tokens.every((t) => hay.includes(t));
 }
 
 function makeIcon(color, shape = "circle") {
@@ -72,6 +79,10 @@ function makeIcon(color, shape = "circle") {
          <circle cx="10" cy="10" r="7" fill="${color}" stroke="#000" stroke-width="1.5"/>
        </svg>`;
   return L.divIcon({ className: "pin", html: svg, iconSize: [20, 20], iconAnchor: [10, 10] });
+}
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 function renderHeader(snap) {
@@ -88,9 +99,8 @@ function renderCategories(incidents) {
   const el = document.getElementById("categories");
   el.innerHTML = "";
   [...cats].sort().forEach((c) => {
-    const id = `cat-${c.replace(/\s+/g, "_")}`;
     const wrap = document.createElement("label");
-    wrap.innerHTML = `<input type="checkbox" class="cat" value="${c}" checked> ${c}`;
+    wrap.innerHTML = `<input type="checkbox" class="cat" value="${escapeHtml(c)}" checked> ${escapeHtml(c)}`;
     el.appendChild(wrap);
   });
 }
@@ -103,113 +113,66 @@ function currentFilters() {
   const categories = new Set(
     [...document.querySelectorAll(".cat:checked")].map((x) => x.value)
   );
-  const q = document.getElementById("q").value.trim().toLowerCase();
-  return { hours, sources, categories, q };
+  const q = document.getElementById("q").value;
+  const tokens = tokenize(q);
+  return { hours, sources, categories, q, tokens };
 }
 
-function matches(incident, f) {
-  if (!f.sources.has(incident.source)) return false;
-  if (!within(incident.occurred_at, f.hours)) return false;
-  if (f.categories.size && !f.categories.has(incident.category)) return false;
-  if (f.q) {
-    const hay = [
-      incident.description,
-      incident.address,
-      incident.category,
-      incident.subcategory,
-      incident.source,
-    ].filter(Boolean).join(" ").toLowerCase();
-    if (!hay.includes(f.q)) return false;
-  }
-  return true;
+function incidentHaystack(i) {
+  return [i.description, i.address, i.category, i.subcategory, i.source].filter(Boolean).join(" ");
+}
+
+function offenderHaystack(o) {
+  return [o.name, o.address, (o.offenses || []).join(" "), "offender", "registry"].filter(Boolean).join(" ");
+}
+
+function matchesIncident(i, f) {
+  if (!f.sources.has(i.source)) return false;
+  if (!within(i.occurred_at, f.hours)) return false;
+  if (f.categories.size && !f.categories.has(i.category)) return false;
+  return matchesAllTokens(incidentHaystack(i), f.tokens);
 }
 
 function visibleIncidents(f) {
-  const snap = state.snapshot;
-  const incidents = (snap.incidents || []).filter((i) => matches(i, f));
-  const offenders = f.sources.has("offenders")
-    ? (snap.offenders || []).filter((o) => {
-        if (!f.q) return true;
-        const hay = [o.name, o.address, (o.offenses || []).join(" "), "offender"]
-          .filter(Boolean).join(" ").toLowerCase();
-        return hay.includes(f.q);
-      })
-    : [];
-  return { incidents, offenders };
+  return (state.snapshot.incidents || []).filter((i) => matchesIncident(i, f));
 }
 
-function renderList(incidents, offenders) {
-  const ul = document.getElementById("list");
-  ul.innerHTML = "";
-  const items = [
-    ...incidents.map((i) => ({ type: "incident", data: i, t: parseIso(i.occurred_at)?.getTime() || 0 })),
-    ...offenders.map((o) => ({ type: "offender", data: o, t: 0 })),
-  ].sort((a, b) => b.t - a.t);
-
-  document.getElementById("list-count").textContent = `(${items.length})`;
-
-  if (items.length === 0) {
-    const empty = document.createElement("li");
-    empty.className = "empty";
-    empty.textContent = "Nothing matches your filters.";
-    ul.appendChild(empty);
-  }
-
-  for (const it of items) {
-    const li = document.createElement("li");
-    const btn = document.createElement("button");
-    if (it.type === "incident") {
-      const i = it.data;
-      btn.innerHTML = `
-        <div class="row-title"><span class="badge ${i.source}">${i.source}</span>${escapeHtml(i.description || "Incident")}</div>
-        <div class="row-meta">${escapeHtml(i.category || "")}${i.subcategory ? " · " + escapeHtml(i.subcategory) : ""}</div>
-        <div class="row-meta">${fmtTime(i.occurred_at)}</div>
-        <div class="row-addr">${escapeHtml(i.address || "")}</div>`;
-      btn.addEventListener("click", () => focusIncident(i));
-    } else {
-      const o = it.data;
-      btn.innerHTML = `
-        <div class="row-title"><span class="badge offender">offender</span>${escapeHtml(o.name || "")}</div>
-        <div class="row-addr">${escapeHtml(o.address || "")}</div>
-        <div class="row-meta">last verified: ${escapeHtml(o.last_verified || "unknown")}</div>`;
-      btn.addEventListener("click", () => focusOffender(o));
-    }
-    li.appendChild(btn);
-    ul.appendChild(li);
-  }
+function visibleOffenders(f) {
+  return (state.snapshot.offenders || []).filter((o) => matchesAllTokens(offenderHaystack(o), f.tokens));
 }
 
-function escapeHtml(s) {
-  return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-function clearMarkers() {
-  if (state.markers) state.markers.clearLayers();
+function clearLayers() {
+  if (state.incidentCluster) state.incidentCluster.clearLayers();
+  if (state.offenderLayer) state.offenderLayer.clearLayers();
   state.incidentMarkers = [];
   state.offenderMarkers = [];
 }
 
 function renderMarkers(incidents, offenders) {
-  clearMarkers();
-  const ms = [];
+  clearLayers();
+
+  const incidentMs = [];
   for (const i of incidents) {
     if (i.lat == null || i.lon == null) continue;
     const color = SOURCE_COLORS[i.source] || "#aaa";
     const m = L.marker([i.lat, i.lon], { icon: makeIcon(color) });
     m.bindPopup(popupForIncident(i));
     m._incident = i;
-    ms.push(m);
+    incidentMs.push(m);
     state.incidentMarkers.push(m);
   }
-  for (const o of offenders) {
-    if (o.lat == null || o.lon == null) continue;
-    const m = L.marker([o.lat, o.lon], { icon: makeIcon(SOURCE_COLORS.offender, "triangle") });
-    m.bindPopup(popupForOffender(o));
-    m._offender = o;
-    ms.push(m);
-    state.offenderMarkers.push(m);
+  state.incidentCluster.addLayers(incidentMs);
+
+  if (state.showOffenders) {
+    for (const o of offenders) {
+      if (o.lat == null || o.lon == null) continue;
+      const m = L.marker([o.lat, o.lon], { icon: makeIcon(SOURCE_COLORS.offender, "triangle") });
+      m.bindPopup(popupForOffender(o));
+      m._offender = o;
+      state.offenderLayer.addLayer(m);
+      state.offenderMarkers.push(m);
+    }
   }
-  state.markers.addLayers(ms);
 }
 
 function popupForIncident(i) {
@@ -221,18 +184,79 @@ function popupForIncident(i) {
 }
 
 function popupForOffender(o) {
-  return `<strong>${escapeHtml(o.name)}</strong><br>
+  return `<strong>${escapeHtml(o.name)}</strong>
+    <span style="background:#2a1d3d;color:#b084ff;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:6px;">REGISTRY</span><br>
     ${escapeHtml(o.address || "")}<br>
     <span style="color:#8a93a6">last verified: ${escapeHtml(o.last_verified || "unknown")}</span><br>
-    ${o.profile_url ? `<a href="${o.profile_url}" target="_blank" rel="noopener">profile</a>` : ""}`;
+    ${(o.offenses && o.offenses.length) ? `<div style="color:#8a93a6;font-size:11px;margin-top:4px;">${escapeHtml(o.offenses.join("; "))}</div>` : ""}
+    ${o.profile_url && o.profile_url !== "#demo" ? `<a href="${o.profile_url}" target="_blank" rel="noopener">registry profile</a>` : ""}`;
+}
+
+function renderIncidentList(incidents) {
+  const ul = document.getElementById("list");
+  ul.innerHTML = "";
+  const items = [...incidents].sort((a, b) => {
+    const at = parseIso(a.occurred_at)?.getTime() || 0;
+    const bt = parseIso(b.occurred_at)?.getTime() || 0;
+    return bt - at;
+  });
+  document.getElementById("list-count").textContent = `(${items.length})`;
+
+  if (items.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "No incidents match your filters.";
+    ul.appendChild(empty);
+    return;
+  }
+
+  for (const i of items) {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.innerHTML = `
+      <div class="row-title"><span class="badge ${i.source}">${escapeHtml(i.source)}</span>${escapeHtml(i.description || "Incident")}</div>
+      <div class="row-meta">${escapeHtml(i.category || "")}${i.subcategory ? " · " + escapeHtml(i.subcategory) : ""}</div>
+      <div class="row-meta">${fmtTime(i.occurred_at)}</div>
+      <div class="row-addr">${escapeHtml(i.address || "")}</div>`;
+    btn.addEventListener("click", () => focusIncident(i));
+    li.appendChild(btn);
+    ul.appendChild(li);
+  }
+}
+
+function renderOffenderList(offenders) {
+  const ul = document.getElementById("offender-list");
+  ul.innerHTML = "";
+  const sorted = [...offenders].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  document.getElementById("offender-count").textContent = `(${sorted.length})`;
+
+  if (sorted.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "No offenders match your search.";
+    ul.appendChild(empty);
+    return;
+  }
+
+  for (const o of sorted) {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.innerHTML = `
+      <div class="row-title"><span class="badge offender">registry</span>${escapeHtml(o.name || "")}</div>
+      <div class="row-addr">${escapeHtml(o.address || "")}</div>
+      <div class="row-meta">last verified: ${escapeHtml(o.last_verified || "unknown")}${o.lat == null ? " · address only" : ""}</div>`;
+    btn.addEventListener("click", () => focusOffender(o));
+    li.appendChild(btn);
+    ul.appendChild(li);
+  }
 }
 
 function openMarker(m, lat, lon) {
-  // zoomToShowLayer uncluster first, then open the popup inside the callback.
   state.map.flyTo([lat, lon], 16, { duration: 0.6 });
   if (!m) return;
-  if (state.markers && typeof state.markers.zoomToShowLayer === "function") {
-    state.markers.zoomToShowLayer(m, () => m.openPopup());
+  if (state.incidentCluster && state.incidentCluster.hasLayer(m) &&
+      typeof state.incidentCluster.zoomToShowLayer === "function") {
+    state.incidentCluster.zoomToShowLayer(m, () => m.openPopup());
   } else {
     m.openPopup();
   }
@@ -245,21 +269,30 @@ function focusIncident(i) {
 }
 
 function focusOffender(o) {
-  if (o.lat == null) return;
+  if (o.lat == null) {
+    alert(`${o.name}\n${o.address || "(address not in snapshot)"}`);
+    return;
+  }
   const m = state.offenderMarkers.find((m) => m._offender.id === o.id);
   openMarker(m, o.lat, o.lon);
 }
 
 function refresh() {
+  if (!state.snapshot) return;
   const f = currentFilters();
-  let { incidents, offenders } = visibleIncidents(f);
+  let incidents = visibleIncidents(f);
+  let offenders = visibleOffenders(f);
+
   renderMarkers(incidents, offenders);
+
   if (state.lockToMap) {
     const bounds = state.map.getBounds();
     incidents = incidents.filter((i) => i.lat != null && bounds.contains([i.lat, i.lon]));
     offenders = offenders.filter((o) => o.lat != null && bounds.contains([o.lat, o.lon]));
   }
-  renderList(incidents, offenders);
+
+  renderIncidentList(incidents);
+  renderOffenderList(offenders);
 }
 
 async function main() {
@@ -269,8 +302,10 @@ async function main() {
     maxZoom: 19,
   }).addTo(state.map);
 
-  state.markers = L.markerClusterGroup({ disableClusteringAtZoom: 15, spiderfyOnMaxZoom: true });
-  state.map.addLayer(state.markers);
+  state.incidentCluster = L.markerClusterGroup({ disableClusteringAtZoom: 15, spiderfyOnMaxZoom: true });
+  state.offenderLayer = L.layerGroup();  // offenders stay unclustered for a scannable registry
+  state.map.addLayer(state.incidentCluster);
+  state.map.addLayer(state.offenderLayer);
 
   try {
     const geo = await (await fetchFirstAvailable(GEO_CANDIDATES)).json();
@@ -288,11 +323,17 @@ async function main() {
   renderHeader(snap);
   renderCategories(snap.incidents || []);
 
-  document.querySelectorAll(".src, #time-range, #q").forEach((el) => {
+  const wireRefresh = (sel) => document.querySelectorAll(sel).forEach((el) => {
     el.addEventListener("input", refresh);
     el.addEventListener("change", refresh);
   });
+  wireRefresh(".src, #time-range, #q");
   document.getElementById("categories").addEventListener("change", refresh);
+  document.getElementById("show-offenders").addEventListener("change", (e) => {
+    state.showOffenders = e.target.checked;
+    if (!state.showOffenders) state.offenderLayer.clearLayers();
+    refresh();
+  });
   document.getElementById("lock-to-map").addEventListener("change", (e) => {
     state.lockToMap = e.target.checked;
     refresh();
@@ -302,9 +343,17 @@ async function main() {
     document.getElementById("time-range").value = "168";
     document.getElementById("q").value = "";
     document.querySelectorAll(".src, .cat").forEach((el) => (el.checked = true));
+    document.getElementById("show-offenders").checked = true;
+    state.showOffenders = true;
     document.getElementById("lock-to-map").checked = false;
     state.lockToMap = false;
     refresh();
+  });
+
+  // Prevent implicit form-submit on Enter in the search box (no form exists,
+  // but browsers sometimes navigate anyway). Treat Enter as an explicit refresh.
+  document.getElementById("q").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); refresh(); }
   });
 
   refresh();
