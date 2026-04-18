@@ -1,30 +1,30 @@
 {
   "counts": {
-    "incidents": 12611,
+    "incidents": 12609,
     "offenders": 0,
     "station_summary": 5000
   },
-  "generated_at": "2026-04-18T13:14:51+00:00",
+  "generated_at": "2026-04-18T16:19:50+00:00",
   "sources": {
     "crime": {
-      "count": 2615,
-      "note": "fetched 2615 rows",
+      "count": 2613,
+      "note": "fetched 2613 rows",
       "status": "ok"
     },
     "dispatched": {
       "count": 9996,
-      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-18T13:14:45'...)",
+      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-18T16:19:16'...)",
       "status": "ok"
     },
     "fire_ems": {
       "count": 0,
       "granularity": "station-aggregate",
-      "note": "stations: 5000 rows (unfiltered); overdoses: 0 rows (unfiltered)",
+      "note": "stations: 5000 rows; columns=[':@computed_region_d9ke_fpxt', 'call_type_description', 'date', 'fire_station', 'fire_station_number', 'incident_number', 'location', 'station_address', 'time']; overdoses: 0 rows; columns=[]; stations client-filter returned 0 (wanted=['29', '33'], columns tried=['station_number', 'station', 'station_name', 'station_id', 'stationnumber', 'stationid'])",
       "status": "degraded"
     },
     "offenders": {
       "count": 0,
-      "note": "HTTPError: 403 Client Error: Forbidden for url: https://www.icrimewatch.net/results.php?AgencyID=54438&SubmitZip=Zip+Code&Zip=20874",
+      "note": "GET {'searchType': 'byZip', 'zip': '20874'}: SSLError: HTTPSConnectionPool(host='www.dpscs.state.md.us', port=443): Max retries exceede; GET {'searchType': 'byZip', 'zipCode': '20874'}: SSLError: HTTPSConnectionPool(host='www.dpscs.state.md.us', port=443): Max retries exceede; GET {'searchType': 'byZip', 'Zip': '20874'}: SSLError: HTTPSConnectionPool(host='www.dpscs.state.md.us', port=443): Max retries exceede; GET {'searchType': 'byZip', 'zip_code': '20874'}: SSLError: HTTPSConnectionPool(host='www.dpscs.state.md.us', port=443): Max retries exceede",
       "status": "error"
     }
   },
