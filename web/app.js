@@ -1,5 +1,18 @@
-const SNAPSHOT_URL = "../data/snapshot.json";
-const GEO_URL = "../config/zip_20874.geojson";
+// Paths resolve against whatever directory serves index.html.
+// Local dev (python -m http.server from repo root + /web/): falls back to ../data, ../config.
+// Pages (deployed as a flat artifact): snapshot.json and zip_20874.geojson sit alongside index.html.
+const SNAPSHOT_CANDIDATES = ["./snapshot.json", "../data/snapshot.json"];
+const GEO_CANDIDATES = ["./zip_20874.geojson", "../config/zip_20874.geojson"];
+
+async function fetchFirstAvailable(urls, init) {
+  for (const u of urls) {
+    try {
+      const r = await fetch(u, init);
+      if (r.ok) return r;
+    } catch (_) {}
+  }
+  throw new Error("no candidate URL returned ok");
+}
 
 const SOURCE_COLORS = {
   crime: "#ff9c6a",
@@ -220,13 +233,13 @@ async function main() {
   state.map.addLayer(state.markers);
 
   try {
-    const geo = await fetch(GEO_URL).then((r) => r.json());
+    const geo = await (await fetchFirstAvailable(GEO_CANDIDATES)).json();
     L.geoJSON(geo, { style: { color: "#46d7ff", weight: 1, fillOpacity: 0 } }).addTo(state.map);
   } catch (_) {}
 
   let snap;
   try {
-    snap = await fetch(SNAPSHOT_URL, { cache: "no-store" }).then((r) => r.json());
+    snap = await (await fetchFirstAvailable(SNAPSHOT_CANDIDATES, { cache: "no-store" })).json();
   } catch (e) {
     document.getElementById("data-as-of").textContent = "snapshot not available yet";
     return;

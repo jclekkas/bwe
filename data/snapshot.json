@@ -1,15 +1,37 @@
 {
-  "generated_at": "1970-01-01T00:00:00+00:00",
+  "generated_at": "2026-04-18T11:15:00+00:00",
   "zip": "20874",
   "window_days": 7,
   "sources": {
-    "crime": {"status": "ok", "note": "no data yet — run the workflow", "count": 0},
-    "dispatched": {"status": "ok", "note": "no data yet", "count": 0},
-    "fire_ems": {"status": "ok", "note": "no data yet", "count": 0},
-    "offenders": {"status": "ok", "note": "no data yet", "count": 0}
+    "crime": {"status": "ok", "note": "demo data", "count": 6},
+    "dispatched": {"status": "ok", "note": "demo data", "count": 5},
+    "fire_ems": {"status": "degraded", "note": "demo data", "count": 0, "granularity": "mixed"},
+    "offenders": {"status": "ok", "note": "demo data", "count": 3}
   },
-  "incidents": [],
-  "fire_ems_station_summary": [],
-  "offenders": [],
+  "incidents": [
+    {"id": "crime-101", "source": "crime", "category": "Property", "subcategory": "Larceny", "description": "Theft from Vehicle", "occurred_at": "2026-04-18T02:15:00+00:00", "reported_at": null, "lat": 39.178, "lon": -77.252, "address": "19400 BLOCK GERMANTOWN RD", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "crime-102", "source": "crime", "category": "Property", "subcategory": "Burglary", "description": "Residential Burglary", "occurred_at": "2026-04-17T23:40:00+00:00", "reported_at": null, "lat": 39.166, "lon": -77.262, "address": "13200 BLOCK CLOPPER RD", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "crime-103", "source": "crime", "category": "Violent", "subcategory": "Assault", "description": "Simple Assault", "occurred_at": "2026-04-17T18:05:00+00:00", "reported_at": null, "lat": 39.189, "lon": -77.240, "address": "MILESTONE CENTER", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "crime-104", "source": "crime", "category": "Drug", "subcategory": "Possession", "description": "Drug Possession", "occurred_at": "2026-04-17T03:22:00+00:00", "reported_at": null, "lat": 39.172, "lon": -77.278, "address": "GREAT SENECA HWY", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "crime-105", "source": "crime", "category": "Property", "subcategory": "Motor Vehicle Theft", "description": "Stolen Auto", "occurred_at": "2026-04-16T08:10:00+00:00", "reported_at": null, "lat": 39.195, "lon": -77.225, "address": "19300 BLOCK OBSERVATION DR", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "crime-106", "source": "crime", "category": "Property", "subcategory": "Vandalism", "description": "Vandalism to Property", "occurred_at": "2026-04-15T14:00:00+00:00", "reported_at": null, "lat": 39.158, "lon": -77.267, "address": "13500 BLOCK WISTERIA DR", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "dispatched-201", "source": "dispatched", "category": "Dispatched", "subcategory": "Priority 2", "description": "Noise Complaint", "occurred_at": "2026-04-18T04:45:00+00:00", "reported_at": null, "lat": 39.181, "lon": -77.256, "address": "18900 BLOCK CRYSTAL ROCK DR", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "dispatched-202", "source": "dispatched", "category": "Dispatched", "subcategory": "Priority 1", "description": "Traffic Collision with Injury", "occurred_at": "2026-04-18T07:32:00+00:00", "reported_at": null, "lat": 39.171, "lon": -77.244, "address": "MIDDLEBROOK RD & GREAT SENECA HWY", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "dispatched-203", "source": "dispatched", "category": "Dispatched", "subcategory": "Priority 3", "description": "Suspicious Person", "occurred_at": "2026-04-17T22:10:00+00:00", "reported_at": null, "lat": 39.164, "lon": -77.230, "address": "NORTH LAKE PARK", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "dispatched-204", "source": "dispatched", "category": "Dispatched", "subcategory": "Priority 2", "description": "Disturbance", "occurred_at": "2026-04-17T19:48:00+00:00", "reported_at": null, "lat": 39.177, "lon": -77.283, "address": "12900 BLOCK WISTERIA DR", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "dispatched-205", "source": "dispatched", "category": "Dispatched", "subcategory": "Priority 2", "description": "Shoplifting Report", "occurred_at": "2026-04-17T13:15:00+00:00", "reported_at": null, "lat": 39.190, "lon": -77.238, "address": "MILESTONE SHOPPING CENTER", "zip_code": "20874", "raw_url": "#demo", "raw": {}},
+    {"id": "overdose-301", "source": "fire_ems", "category": "Overdose", "subcategory": "Opioid", "description": "Opioid Overdose Response", "occurred_at": "2026-04-16T05:22:00+00:00", "reported_at": null, "lat": 39.169, "lon": -77.259, "address": "13100 BLOCK MIDDLEBROOK RD", "zip_code": "20874", "raw_url": "#demo", "raw": {}}
+  ],
+  "fire_ems_station_summary": [
+    {"station": "29", "date": "2026-04-17", "ems_count": 18, "fire_count": 2},
+    {"station": "33", "date": "2026-04-17", "ems_count": 11, "fire_count": 1},
+    {"station": "29", "date": "2026-04-16", "ems_count": 22, "fire_count": 0},
+    {"station": "33", "date": "2026-04-16", "ems_count": 9, "fire_count": 3}
+  ],
+  "offenders": [
+    {"id": "demo-1", "name": "DEMO, SAMPLE A", "address": "19000 BLOCK GERMANTOWN RD, GERMANTOWN, MD 20874", "zip_code": "20874", "offenses": ["Demo offense"], "last_verified": "2026-02-10", "photo_url": null, "profile_url": "#demo", "lat": 39.184, "lon": -77.249},
+    {"id": "demo-2", "name": "DEMO, SAMPLE B", "address": "13300 BLOCK CLOPPER RD, GERMANTOWN, MD 20874", "zip_code": "20874", "offenses": ["Demo offense"], "last_verified": "2025-11-04", "photo_url": null, "profile_url": "#demo", "lat": 39.163, "lon": -77.268},
+    {"id": "demo-3", "name": "DEMO, SAMPLE C", "address": "18600 BLOCK MIDDLEBROOK RD, GERMANTOWN, MD 20874", "zip_code": "20874", "offenses": ["Demo offense"], "last_verified": "2026-01-22", "photo_url": null, "profile_url": "#demo", "lat": 39.175, "lon": -77.260}
+  ],
   "offenders_stale_copy": []
 }

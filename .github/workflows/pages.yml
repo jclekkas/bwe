@@ -1,0 +1,49 @@
+# Deploys the /web UI to GitHub Pages on every push (including the cron's snapshot commit).
+# Requires: Settings -> Pages -> Source: GitHub Actions (one-time setup).
+name: Deploy Pages
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "web/**"
+      - "data/snapshot.json"
+      - "config/zip_20874.geojson"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r web/* site/
+          cp data/snapshot.json site/snapshot.json
+          cp config/zip_20874.geojson site/zip_20874.geojson
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

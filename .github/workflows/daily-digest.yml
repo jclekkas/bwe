@@ -62,7 +62,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "no data changes"
           else
-            git commit -m "chore: snapshot $(date -u +%F) [skip ci]"
+            git commit -m "chore: snapshot $(date -u +%F)"
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
 
