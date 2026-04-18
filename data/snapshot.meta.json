@@ -2,9 +2,9 @@
   "counts": {
     "incidents": 12611,
     "offenders": 0,
-    "station_summary": 0
+    "station_summary": 5000
   },
-  "generated_at": "2026-04-18T12:58:46+00:00",
+  "generated_at": "2026-04-18T13:14:51+00:00",
   "sources": {
     "crime": {
       "count": 2615,
@@ -13,14 +13,14 @@
     },
     "dispatched": {
       "count": 9996,
-      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-18T12:58:42'...)",
+      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-18T13:14:45'...)",
       "status": "ok"
     },
     "fire_ems": {
       "count": 0,
       "granularity": "station-aggregate",
-      "note": "stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; stations try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses try: HTTPError: 400 Client Error: Bad Request.\n\tQuery coordinator error: query.soql.no-such-colu; overdoses via: no filter",
-      "status": "error"
+      "note": "stations: 5000 rows (unfiltered); overdoses: 0 rows (unfiltered)",
+      "status": "degraded"
     },
     "offenders": {
       "count": 0,
