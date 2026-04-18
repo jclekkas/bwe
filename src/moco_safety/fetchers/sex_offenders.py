@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -11,14 +11,17 @@ from ..models import FetchResult
 from ..util.cache import HtmlCache, JsonCache
 from ..util.http import RateLimiter, get
 
-BASE = "https://www.icrimewatch.net/"
+# Maryland Sex Offender Registry (DPSCS WebSOR). Public, updated daily.
+BASE = "https://www.dpscs.state.md.us/sorSearch/"
+SEARCH_URL = BASE + "search.do"
 
 
 class SexOffenderFetcher:
-    """Scrapes the Maryland iCrimeWatch registry results for a given ZIP.
+    """Scrapes the Maryland state DPSCS sex-offender registry for a given ZIP.
 
-    HTML structure is volatile — this fetcher deliberately errors loudly
-    (status=error) rather than returning a silently-empty list.
+    Tries several parameter shapes since the form spec isn't documented; logs
+    response status + size to the FetchResult note so the snapshot.meta.json
+    surfaces what worked.
     """
 
     name = "offenders"
@@ -33,68 +36,93 @@ class SexOffenderFetcher:
         html_cache = HtmlCache(CACHE_DIR / "offenders", ttl)
         geocode = JsonCache(CACHE_DIR / "geocode.json")
 
+        notes: list[str] = []
+        results_html = None
         try:
-            results_html = self._fetch_results(cfg["agency_id"], settings.zip, limiter)
+            param_attempts = [
+                {"searchType": "byZip", "zip": settings.zip},
+                {"searchType": "byZip", "zipCode": settings.zip},
+                {"searchType": "byZip", "Zip": settings.zip},
+                {"searchType": "byZip", "zip_code": settings.zip},
+            ]
+            for params in param_attempts:
+                try:
+                    r = get(SEARCH_URL, params=params, limiter=limiter, timeout=30)
+                    notes.append(f"GET {params}: {r.status_code} ({len(r.text)} bytes)")
+                    if r.status_code == 200 and len(r.text) > 1000:
+                        results_html = r.text
+                        used_params = params
+                        break
+                except Exception as e:
+                    notes.append(f"GET {params}: {type(e).__name__}: {str(e)[:80]}")
+                    continue
+
+            if results_html is None:
+                return FetchResult(self.name, "error", "; ".join(notes))
+
             profiles = self._parse_results(results_html)
+            notes.append(f"parsed {len(profiles)} profile links")
             if not profiles:
-                return FetchResult(
-                    self.name, "ok",
-                    "no offenders listed for ZIP (or parse returned zero — inspect manually)",
-                    records=[],
-                )
+                # Could be a legitimate empty result OR a parse-format change.
+                # Save first 600 chars of body for debugging.
+                snippet = re.sub(r"\s+", " ", results_html[:600])
+                notes.append(f"body snippet: {snippet}")
+                return FetchResult(self.name, "ok", "; ".join(notes), records=[],
+                                   meta={"used_params": used_params})
 
             offenders: list[dict] = []
             for p in profiles:
-                key = p["profile_url"]
-                html = html_cache.get(key)
+                profile_url = p["profile_url"]
+                html = html_cache.get(profile_url)
                 if html is None:
-                    r = get(p["profile_url"], limiter=limiter)
-                    html = r.text
-                    html_cache.put(key, html)
+                    try:
+                        rp = get(profile_url, limiter=limiter)
+                        html = rp.text
+                        html_cache.put(profile_url, html)
+                    except Exception as e:
+                        notes.append(f"profile {p['id']}: {type(e).__name__}")
+                        continue
                 details = self._parse_profile(html)
                 if details.get("lat") is None and details.get("address"):
-                    details["lat"], details["lon"] = self._geocode(details["address"], geocode, limiter)
+                    details["lat"], details["lon"] = self._geocode(
+                        details["address"], geocode, limiter
+                    )
                 offenders.append({**p, **details})
 
             return FetchResult(
                 self.name, "ok",
-                f"{len(offenders)} offenders",
+                f"{len(offenders)} offenders | {'; '.join(notes)}",
                 records=offenders,
-                meta={"agency_id": cfg["agency_id"], "zip": settings.zip},
+                meta={"used_params": used_params, "zip": settings.zip},
             )
         except Exception as e:
-            return FetchResult(self.name, "error", f"{type(e).__name__}: {e}")
-
-    # --- helpers ---
-
-    def _fetch_results(self, agency_id: str, zip_code: str, limiter: RateLimiter) -> str:
-        url = urljoin(BASE, "results.php")
-        r = get(
-            url,
-            params={"AgencyID": agency_id, "SubmitZip": "Zip Code", "Zip": zip_code},
-            limiter=limiter,
-        )
-        r.raise_for_status()
-        return r.text
+            notes.append(f"{type(e).__name__}: {str(e)[:200]}")
+            return FetchResult(self.name, "error", "; ".join(notes))
 
     def _parse_results(self, html: str) -> list[dict]:
         soup = BeautifulSoup(html, "html.parser")
         out: list[dict] = []
-        # icrimewatch result rows typically link to detail.php?OfndrID=...
-        for a in soup.select("a[href*='detail.php']"):
+        # Try to find detail links — DPSCS uses search.do?searchType=detail or
+        # offenderProfile.do or similar. Be permissive about the link target.
+        for a in soup.select("a[href]"):
             href = a.get("href", "")
-            if "OfndrID" not in href:
+            if not href:
                 continue
-            profile_url = urljoin(BASE, href)
-            m = re.search(r"OfndrID=(\d+)", href)
-            ofndr_id = m.group(1) if m else profile_url
-            name = a.get_text(strip=True) or f"Offender {ofndr_id}"
-            if not any(x["id"] == ofndr_id for x in out):
-                out.append({
-                    "id": ofndr_id,
-                    "name": name,
-                    "profile_url": profile_url,
-                })
+            if not any(token in href.lower() for token in ["detail", "profile", "offender", "sornum", "id="]):
+                continue
+            url = urljoin(BASE, href)
+            # Skip same-page anchors
+            if not urlparse(url).netloc:
+                continue
+            # Extract an id from the URL query string if possible
+            m = re.search(r"(?:sorNum|offenderId|id|num)=([A-Za-z0-9_-]+)", href, re.I)
+            ofndr_id = m.group(1) if m else url
+            name = a.get_text(" ", strip=True)
+            if not name or len(name) < 3:
+                continue
+            if any(x["id"] == ofndr_id for x in out):
+                continue
+            out.append({"id": str(ofndr_id), "name": name, "profile_url": url})
         return out
 
     def _parse_profile(self, html: str) -> dict:
@@ -109,8 +137,7 @@ class SexOffenderFetcher:
             "lat": None,
             "lon": None,
         }
-
-        img = soup.find("img", src=re.compile(r"photos?|offender", re.I))
+        img = soup.find("img", src=re.compile(r"photo|offender|sor", re.I))
         if img and img.get("src"):
             out["photo_url"] = urljoin(BASE, img["src"])
 
@@ -123,13 +150,12 @@ class SexOffenderFetcher:
             if zm:
                 out["zip_code"] = zm.group(1)
 
-        # Offenses often appear under a heading; keep it conservative.
-        for li in soup.select("li"):
+        for li in soup.select("li, td, p"):
             t = li.get_text(" ", strip=True)
-            if re.search(r"\b(offense|charge|conviction|statute)\b", t, re.I):
+            if re.search(r"\b(offense|charge|conviction|statute|crime)\b", t, re.I) and len(t) < 300:
                 out["offenses"].append(t)
 
-        lv = re.search(r"(?:Last Verified|Verified)[:\s]+([0-9/.\-]+)", text, re.I)
+        lv = re.search(r"(?:Last Verified|Verified|Last Verification)[:\s]+([0-9/.\-]+)", text, re.I)
         if lv:
             out["last_verified"] = lv.group(1)
 
