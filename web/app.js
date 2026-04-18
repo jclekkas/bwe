@@ -460,6 +460,106 @@ function refresh() {
   if (qEl && qClear) qClear.hidden = !qEl.value;
 }
 
+// Bounding box biased to Montgomery County MD so Nominatim returns local hits.
+const SUGGEST_VIEWBOX = "-77.35,39.25,-77.00,39.00"; // left,top,right,bottom
+const SUGGEST_DEBOUNCE_MS = 350;
+
+function wireAddressAutocomplete() {
+  const input = byId("q");
+  const list = byId("q-suggest");
+  if (!input || !list) return;
+  let timer = null;
+  let lastQ = "";
+  let activeIdx = -1;
+
+  const hide = () => { list.hidden = true; list.innerHTML = ""; activeIdx = -1; };
+  const show = (items) => {
+    if (!items.length) return hide();
+    list.innerHTML = items.map((it, i) =>
+      `<li role="option" data-i="${i}"><span class="pin">\u{1F4CD}</span>${escapeHtml(it.display_name)}</li>`
+    ).join("");
+    list.hidden = false;
+    activeIdx = -1;
+    list.querySelectorAll("li").forEach((li) => {
+      li.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // keep focus
+        pick(items[Number(li.dataset.i)]);
+      });
+    });
+  };
+  const pick = (it) => {
+    input.value = it.display_name;
+    hide();
+    const lat = parseFloat(it.lat), lon = parseFloat(it.lon);
+    if (isFinite(lat) && isFinite(lon) && state.map) {
+      state.map.flyTo([lat, lon], 17, { duration: 0.6 });
+      // Drop a transient pin so the address is visually anchored.
+      if (state._pickMarker) state.map.removeLayer(state._pickMarker);
+      state._pickMarker = L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: "pick-marker",
+          html: "<div style='font-size:22px;line-height:22px'>\u{1F4CD}</div>",
+          iconSize: [22, 22],
+          iconAnchor: [11, 20],
+        })
+      }).addTo(state.map);
+    }
+    refresh();
+  };
+
+  const run = async () => {
+    const q = input.value.trim();
+    if (q.length < 3 || q === lastQ) return;
+    // Heuristic: only geocode when it looks address-ish (has a digit OR a
+    // street-name keyword). Bare words like "theft" shouldn't burn a Nominatim
+    // call.
+    if (!/\d/.test(q) && !/\b(rd|road|st|street|ave|avenue|blvd|ln|dr|drive|way|ct|court|hwy|pkwy)\b/i.test(q)) {
+      hide(); return;
+    }
+    lastQ = q;
+    try {
+      const u = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=6&countrycodes=us&viewbox=${SUGGEST_VIEWBOX}&bounded=1&q=${encodeURIComponent(q)}`;
+      const r = await fetch(u, { headers: { "Accept": "application/json" } });
+      if (!r.ok) return hide();
+      const items = await r.json();
+      if (document.activeElement !== input) return; // user moved on
+      show(items);
+    } catch (_) { hide(); }
+  };
+
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(run, SUGGEST_DEBOUNCE_MS);
+  });
+  input.addEventListener("blur", () => setTimeout(hide, 150));
+  input.addEventListener("keydown", (e) => {
+    const items = list.querySelectorAll("li");
+    if (!items.length || list.hidden) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIdx = (activeIdx + 1) % items.length;
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIdx = (activeIdx - 1 + items.length) % items.length;
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      items[activeIdx].dispatchEvent(new Event("mousedown"));
+      return;
+    } else if (e.key === "Escape") {
+      hide(); return;
+    } else {
+      return;
+    }
+    items.forEach((li, i) => li.classList.toggle("active", i === activeIdx));
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 async function main() {
   state.map = L.map("map", { zoomControl: true }).setView([39.17, -77.24], 12);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -536,6 +636,7 @@ async function main() {
   on("q", "keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); refresh(); }
   });
+  wireAddressAutocomplete();
 
   on("detail-close", "click", hideDetail);
   // ESC also closes the detail drawer.
