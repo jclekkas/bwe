@@ -61,6 +61,8 @@ def build_snapshot(
             "note": r.note,
             "count": len(r.records),
             **({"granularity": r.meta["granularity"]} if r.meta.get("granularity") else {}),
+            **({"manual_url": r.meta["manual_url"]} if r.meta.get("manual_url") else {}),
+            **({"blocked": True} if r.meta.get("blocked") else {}),
         }
         for name, r in results.items()
     }
@@ -125,8 +127,8 @@ def load_previous() -> dict | None:
 
 
 def apply_offender_fallback(current: Snapshot, previous: dict | None, offenders_status: str) -> None:
-    """If current offender fetch failed, carry forward the previous list as stale_copy."""
-    if offenders_status != "error" or previous is None:
+    """If current offender fetch failed or was blocked, carry forward the previous list."""
+    if offenders_status not in ("error", "degraded") or previous is None:
         return
     prev_off = previous.get("offenders") or []
     current.offenders = []

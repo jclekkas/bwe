@@ -302,7 +302,15 @@ function renderOffenderList(offenders) {
   if (sorted.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty";
-    empty.textContent = "No offenders match your search.";
+    const src = state.snapshot && state.snapshot.sources && state.snapshot.sources.offenders;
+    if (src && src.blocked && src.manual_url) {
+      empty.innerHTML =
+        `State registry blocks automated access from this host. ` +
+        `<a href="${src.manual_url}" target="_blank" rel="noopener">` +
+        `Open the Maryland registry for ZIP ${escapeHtml(state.snapshot.zip)} &rarr;</a>`;
+    } else {
+      empty.textContent = "No offenders match your search.";
+    }
     ul.appendChild(empty);
     return;
   }
