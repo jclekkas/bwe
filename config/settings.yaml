@@ -7,7 +7,7 @@ bbox:
   west: -77.30
 windows:
   digest_hours: 24
-  ui_days: 7
+  ui_days: 365
   history_days: 30
 sources:
   crime:

@@ -28,8 +28,10 @@
         <select id="time-range">
           <option value="24">Last 24 hours</option>
           <option value="72">Last 3 days</option>
-          <option value="168" selected>Last 7 days</option>
+          <option value="168">Last 7 days</option>
           <option value="720">Last 30 days</option>
+          <option value="2160">Last 90 days</option>
+          <option value="8760" selected>Last 1 year</option>
           <option value="0">All loaded</option>
         </select>
       </label>
@@ -93,15 +95,23 @@
     </section>
 
     <section class="list-wrap">
-      <div class="panel">
-        <h2>Incidents <span id="list-count"></span></h2>
-        <div class="panel-note">Time range + source filters apply.</div>
-        <ul id="list"></ul>
+      <div id="lists">
+        <div class="panel">
+          <h2>Incidents <span id="list-count"></span></h2>
+          <div class="panel-note">Click any row to see the full record. Time range + source filters apply.</div>
+          <ul id="list"></ul>
+        </div>
+        <div class="panel">
+          <h2>Registered offenders <span id="offender-count"></span></h2>
+          <div class="panel-note">Maryland registry for ZIP 20874. Time range does not apply.</div>
+          <ul id="offender-list"></ul>
+        </div>
       </div>
-      <div class="panel">
-        <h2>Registered offenders <span id="offender-count"></span></h2>
-        <div class="panel-note">Maryland registry for ZIP 20874. Time range does not apply.</div>
-        <ul id="offender-list"></ul>
+      <div id="detail" hidden>
+        <div class="detail-header">
+          <button id="detail-close" aria-label="Close detail">&larr; Back to list</button>
+        </div>
+        <div id="detail-body"></div>
       </div>
     </section>
   </main>

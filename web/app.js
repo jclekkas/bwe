@@ -224,6 +224,7 @@ function renderMarkers(incidents, offenders) {
     const color = SOURCE_COLORS[i.source] || "#aaa";
     const m = L.marker([i.lat, i.lon], { icon: makeIcon(color) });
     m.bindPopup(popupForIncident(i));
+    m.on("click", () => showDetail(detailHtmlForIncident(i)));
     m._incident = i;
     incidentMs.push(m);
     state.incidentMarkers.push(m);
@@ -235,6 +236,7 @@ function renderMarkers(incidents, offenders) {
       if (o.lat == null || o.lon == null) continue;
       const m = L.marker([o.lat, o.lon], { icon: makeIcon(SOURCE_COLORS.offender, "triangle") });
       m.bindPopup(popupForOffender(o));
+      m.on("click", () => showDetail(detailHtmlForOffender(o)));
       m._offender = o;
       state.offenderLayer.addLayer(m);
       state.offenderMarkers.push(m);
@@ -329,19 +331,109 @@ function openMarker(m, lat, lon) {
   }
 }
 
+function showDetail(html) {
+  const lists = byId("lists");
+  const detail = byId("detail");
+  const body = byId("detail-body");
+  if (!lists || !detail || !body) return;
+  body.innerHTML = html;
+  lists.hidden = true;
+  detail.hidden = false;
+  detail.scrollTop = 0;
+}
+
+function hideDetail() {
+  const lists = byId("lists");
+  const detail = byId("detail");
+  if (!lists || !detail) return;
+  lists.hidden = false;
+  detail.hidden = true;
+}
+
+function kvTable(obj) {
+  const rows = Object.entries(obj || {}).map(([k, v]) => {
+    const val = v == null ? "—" : (typeof v === "object" ? JSON.stringify(v) : String(v));
+    return `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(val)}</td></tr>`;
+  });
+  return `<table class="kv">${rows.join("")}</table>`;
+}
+
+function detailHtmlForIncident(i) {
+  const summary = {
+    source: i.source,
+    category: i.category,
+    subcategory: i.subcategory,
+    occurred_at: i.occurred_at,
+    reported_at: i.reported_at,
+    address: i.address,
+    zip_code: i.zip_code,
+    lat: i.lat,
+    lon: i.lon,
+  };
+  const actions = [];
+  if (i.raw_url && i.raw_url !== "#demo") {
+    actions.push(`<a href="${i.raw_url}" target="_blank" rel="noopener">Open in MoCo open data portal &rarr;</a>`);
+  }
+  if (i.lat != null && i.lon != null) {
+    actions.push(`<a href="https://www.google.com/maps?q=${i.lat},${i.lon}" target="_blank" rel="noopener">Open in Google Maps &rarr;</a>`);
+  }
+  return `
+    <h3>${escapeHtml(i.description || "Incident")}</h3>
+    <div class="subhead">
+      <span class="badge ${escapeHtml(i.source)}">${escapeHtml(i.source)}</span>
+      ${escapeHtml(i.category || "")}${i.subcategory ? " · " + escapeHtml(i.subcategory) : ""} · ${fmtTime(i.occurred_at)}
+    </div>
+    <div class="actions">${actions.join("")}</div>
+    <div class="section-title">Normalized fields</div>
+    ${kvTable(summary)}
+    <div class="section-title">All raw fields (${Object.keys(i.raw || {}).length})</div>
+    ${kvTable(i.raw || {})}
+  `;
+}
+
+function detailHtmlForOffender(o) {
+  const actions = [];
+  if (o.profile_url && o.profile_url !== "#demo") {
+    actions.push(`<a href="${o.profile_url}" target="_blank" rel="noopener">Registry profile &rarr;</a>`);
+  }
+  if (o.lat != null && o.lon != null) {
+    actions.push(`<a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" rel="noopener">Open in Google Maps &rarr;</a>`);
+  }
+  return `
+    <h3>${escapeHtml(o.name || "Offender")}</h3>
+    <div class="subhead">
+      <span class="badge offender">registry</span>
+      ZIP ${escapeHtml(o.zip_code || "")} · last verified: ${escapeHtml(o.last_verified || "unknown")}
+    </div>
+    <div class="actions">${actions.join("")}</div>
+    <div class="section-title">Record</div>
+    ${kvTable({
+      name: o.name,
+      address: o.address,
+      zip_code: o.zip_code,
+      last_verified: o.last_verified,
+      lat: o.lat,
+      lon: o.lon,
+      profile_url: o.profile_url,
+      offenses: (o.offenses || []).join("; "),
+    })}
+  `;
+}
+
 function focusIncident(i) {
-  if (i.lat == null) return;
-  const m = state.incidentMarkers.find((m) => m._incident.id === i.id);
-  openMarker(m, i.lat, i.lon);
+  showDetail(detailHtmlForIncident(i));
+  if (i.lat != null) {
+    const m = state.incidentMarkers.find((m) => m._incident.id === i.id);
+    openMarker(m, i.lat, i.lon);
+  }
 }
 
 function focusOffender(o) {
-  if (o.lat == null) {
-    alert(`${o.name}\n${o.address || "(address not in snapshot)"}`);
-    return;
+  showDetail(detailHtmlForOffender(o));
+  if (o.lat != null) {
+    const m = state.offenderMarkers.find((m) => m._offender.id === o.id);
+    openMarker(m, o.lat, o.lon);
   }
-  const m = state.offenderMarkers.find((m) => m._offender.id === o.id);
-  openMarker(m, o.lat, o.lon);
 }
 
 function refresh() {
@@ -443,6 +535,12 @@ async function main() {
   // form-submit navigation in browsers that wrap lone inputs in a form).
   on("q", "keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); refresh(); }
+  });
+
+  on("detail-close", "click", hideDetail);
+  // ESC also closes the detail drawer.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideDetail();
   });
 
   refresh();
