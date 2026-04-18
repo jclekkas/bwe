@@ -12,11 +12,13 @@ DOMAIN = "data.montgomerycountymd.gov"
 
 
 class FireEmsFetcher:
-    """MCFRS exposes station-daily aggregates, not per-incident rows.
+    """MCFRS station dataset is per-incident. Real columns (observed 2026-04-18):
+    fire_station, fire_station_number, incident_number, call_type_description,
+    date, time, location, station_address.
 
-    We return two things:
-      - station_summary: rows from the station-daily dataset for our local stations
-      - overdose_incidents: individual overdose rows (these do have lat/lon)
+    We return:
+      - station_rows: per-incident rows for our local stations
+      - overdose_rows: individual overdose incidents (lat/lon present)
     """
 
     name = "fire_ems"
@@ -52,30 +54,19 @@ class FireEmsFetcher:
             except Exception as e:
                 notes.append(f"overdoses: {type(e).__name__}: {str(e)[:100]}")
 
-            # Filter stations client-side by station id + date threshold.
+            # Per-incident rows. Match station by fire_station_number (canonical,
+            # observed in the live data). Fall back to fire_station text match
+            # for completeness.
             if stations and station_rows:
                 wanted = {str(s) for s in stations}
-                station_keys = ["station_number", "station", "station_name", "station_id", "stationnumber", "stationid"]
                 filtered = []
                 for r in station_rows:
-                    station_id = ""
-                    for k in station_keys:
-                        if k in r and r[k]:
-                            station_id = str(r[k])
-                            break
-                    # also handle numeric "29" vs string "29" vs "Station 29"
-                    matched = False
-                    for s in wanted:
-                        if station_id == s or station_id.endswith(f" {s}") or station_id == f"Station {s}":
-                            matched = True
-                            break
-                    if matched:
+                    num = str(r.get("fire_station_number") or "").strip()
+                    txt = str(r.get("fire_station") or "").strip()
+                    if num in wanted or any(txt.endswith(f" {s}") or txt == f"Station {s}" for s in wanted):
                         filtered.append(r)
-                if filtered:
-                    station_rows = filtered
-                    notes.append(f"stations filtered to {len(filtered)} rows for stations={sorted(wanted)}")
-                else:
-                    notes.append(f"stations client-filter returned 0 (wanted={sorted(wanted)}, columns tried={station_keys})")
+                station_rows = filtered
+                notes.append(f"stations filtered to {len(filtered)} rows for fire_station_number in {sorted(wanted)}")
 
             if station_rows or overdose_rows:
                 status = "ok" if overdose_rows else "degraded"
@@ -90,7 +81,7 @@ class FireEmsFetcher:
                 meta={
                     "station_rows": station_rows,
                     "overdose_rows": overdose_rows,
-                    "granularity": "station-aggregate" if not overdose_rows else "mixed",
+                    "granularity": "per-incident",
                     "stations": stations,
                 },
             )

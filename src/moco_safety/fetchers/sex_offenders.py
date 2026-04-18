@@ -12,7 +12,9 @@ from ..util.cache import HtmlCache, JsonCache
 from ..util.http import RateLimiter, get
 
 # Maryland Sex Offender Registry (DPSCS WebSOR). Public, updated daily.
-BASE = "https://www.dpscs.state.md.us/sorSearch/"
+# HTTP (not HTTPS): the dpscs.state.md.us cert fails handshake from GitHub
+# runners; the canonical search URL cited by web sources is http://.
+BASE = "http://www.dpscs.state.md.us/sorSearch/"
 SEARCH_URL = BASE + "search.do"
 
 
