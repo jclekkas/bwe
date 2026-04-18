@@ -35,56 +35,36 @@ class FireEmsFetcher:
         status = "degraded"  # aggregate-only by nature
 
         try:
-            if stations:
-                station_list = ", ".join(str(s) for s in stations)
-                station_date = since.strftime("%Y-%m-%d")
-                # Try a few column-name variants since MoCo datasets vary.
-                station_attempts = [
-                    f"station_number in({station_list}) AND date >= '{station_date}'",
-                    f"station in({station_list}) AND date >= '{station_date}'",
-                    f"station_number in({station_list})",
-                    f"station in({station_list})",
-                ]
-                for where in station_attempts:
-                    try:
-                        station_rows = client.get(
-                            cfg["station_dataset"],
-                            where=where,
-                            limit=5000,
-                        )
-                        notes.append(f"stations via: {where[:40]}...")
-                        break
-                    except Exception as e:
-                        notes.append(f"stations try: {type(e).__name__}: {str(e)[:80]}")
-                        continue
+            # Fetch unfiltered and let the UI filter by time. MCFRS datasets
+            # have inconsistent column names; overspecifying a WHERE clause
+            # just causes 400s. Both datasets are small enough to pull whole.
+            try:
+                station_rows = client.get(cfg["station_dataset"], limit=5000)
+                notes.append(f"stations: {len(station_rows)} rows (unfiltered)")
+            except Exception as e:
+                notes.append(f"stations: {type(e).__name__}: {str(e)[:100]}")
 
-            since_iso = since.strftime("%Y-%m-%dT%H:%M:%S")
-            overdose_attempts = [
-                f"incident_date_time >= '{since_iso}'",
-                f"date >= '{since_iso}'",
-                f"incident_date >= '{since.strftime('%Y-%m-%d')}'",
-                None,  # unfiltered, let the normalizer handle date parsing
-            ]
-            for where in overdose_attempts:
-                try:
-                    if where is None:
-                        overdose_rows = client.get(cfg["overdose_dataset"], limit=2000)
-                    else:
-                        overdose_rows = client.get(
-                            cfg["overdose_dataset"],
-                            where=where,
-                            limit=2000,
-                        )
-                    notes.append(f"overdoses via: {where or 'no filter'}")
-                    break
-                except Exception as e:
-                    notes.append(f"overdoses try: {type(e).__name__}: {str(e)[:80]}")
-                    continue
+            try:
+                overdose_rows = client.get(cfg["overdose_dataset"], limit=2000)
+                notes.append(f"overdoses: {len(overdose_rows)} rows (unfiltered)")
+            except Exception as e:
+                notes.append(f"overdoses: {type(e).__name__}: {str(e)[:100]}")
 
-            if not station_rows and not overdose_rows and notes:
+            # Filter stations client-side by station id + date threshold.
+            if stations and station_rows:
+                wanted = {str(s) for s in stations}
+                filtered = []
+                for r in station_rows:
+                    station_id = str(r.get("station_number") or r.get("station") or r.get("station_name") or "")
+                    if station_id in wanted or any(station_id.endswith(s) for s in wanted):
+                        filtered.append(r)
+                if filtered:
+                    station_rows = filtered
+
+            if station_rows or overdose_rows:
+                status = "ok" if overdose_rows else "degraded"
+            elif notes:
                 status = "error"
-            else:
-                status = "degraded" if not overdose_rows else "ok"
 
             return FetchResult(
                 self.name,

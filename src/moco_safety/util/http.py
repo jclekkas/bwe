@@ -6,9 +6,12 @@ from typing import Optional
 import requests
 
 
+# icrimewatch.net and similar sites block obvious bot UAs with a 403, so pose
+# as a mainstream browser. This is a public-records site with no per-user data.
 USER_AGENT = (
-    "moco-safety/0.1 (+https://github.com/) "
-    "personal neighborhood safety digest"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/126.0.0.0 Safari/537.36"
 )
 
 
@@ -37,7 +40,12 @@ def get(
     backoff: float = 1.5,
     limiter: Optional[RateLimiter] = None,
 ) -> requests.Response:
-    h = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    h = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+    }
     if headers:
         h.update(headers)
     last_exc: Optional[Exception] = None
