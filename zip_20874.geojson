@@ -1,0 +1,17 @@
+{
+  "type": "Feature",
+  "properties": {
+    "zip": "20874",
+    "note": "PLACEHOLDER: this is the bbox, not the true ZCTA boundary. Replace with the real ZCTA polygon from the US Census TIGER/Line shapefiles (download ZCTA 2020, filter GEOID10='20874', convert to GeoJSON) for accurate point-in-polygon filtering."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-77.30, 39.14],
+      [-77.18, 39.14],
+      [-77.18, 39.22],
+      [-77.30, 39.22],
+      [-77.30, 39.14]
+    ]]
+  }
+}
