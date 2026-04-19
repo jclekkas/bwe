@@ -1,19 +1,18 @@
 {
   "counts": {
-    "incidents": 12832,
-    "offenders": 0,
+    "incidents": 12833,
     "station_summary": 26
   },
-  "generated_at": "2026-04-18T16:41:52+00:00",
+  "generated_at": "2026-04-19T11:51:09+00:00",
   "sources": {
     "crime": {
-      "count": 2612,
-      "note": "fetched 2612 rows",
+      "count": 2613,
+      "note": "fetched 2613 rows",
       "status": "ok"
     },
     "dispatched": {
       "count": 9996,
-      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-18T16:41:27'...)",
+      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-19T11:51:06'...)",
       "status": "ok"
     },
     "fire_ems": {
@@ -21,11 +20,6 @@
       "granularity": "per-incident",
       "note": "stations: 5000 rows; columns=[':@computed_region_d9ke_fpxt', 'call_type_description', 'date', 'fire_station', 'fire_station_number', 'incident_number', 'location', 'station_address', 'time']; overdoses: 0 rows; columns=[]; stations filtered to 224 rows for fire_station_number in ['29', '33']",
       "status": "degraded"
-    },
-    "offenders": {
-      "count": 0,
-      "note": "https://dpscs.state.md.us/sorSearch/ (verify=True): ConnectionError: HTTPSConnectionPool(host='dpscs.state.md.us', port=443): Max retries exceeded with url: /sorSearch/ (Caused by NameResol; https://dpscs.state.md.us/sorSearch/ (verify=False): ConnectionError: HTTPSConnectionPool(host='dpscs.state.md.us', port=443): Max retries exceeded with url: /sorSearch/ (Caused by NameResol; http://dpscs.state.md.us/sorSearch/ (verify=False): ConnectionError: HTTPConnectionPool(host='dpscs.state.md.us', port=80): Max retries exceeded with url: /sorSearch/ (Caused by NameResolut; https://www.dpscs.state.md.us/sorSearch/ (verify=True): SSLError: HTTPSConnectionPool(host='www.dpscs.state.md.us', port=443): Max retries exceeded with url: /sorSearch/ (Caused by SSLEr; https://www.dpscs.state.md.us/sorSearch/ landing: 403 (1704 bytes); https://www.dpscs.state.md.us/sorSearch/ agree: 403 (1704 bytes); https://www.dpscs.state.md.us/sorSearch/ search {'searchType': 'byZip', 'zip': '20874'}: 403 (1704 bytes); http://www.dpscs.state.md.us/sorSearch/ landing: 404 (315 bytes); http://www.dpscs.state.md.us/sorSearch/ agree: 404 (315 bytes); http://www.dpscs.state.md.us/sorSearch/ search {'searchType': 'byZip', 'zip': '20874'}: 404 (315 bytes)",
-      "status": "error"
     }
   },
   "zip": "20874"
