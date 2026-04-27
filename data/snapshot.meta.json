@@ -1,18 +1,18 @@
 {
   "counts": {
-    "incidents": 12785,
+    "incidents": 12777,
     "station_summary": 26
   },
-  "generated_at": "2026-04-26T11:57:12+00:00",
+  "generated_at": "2026-04-27T12:53:32+00:00",
   "sources": {
     "crime": {
-      "count": 2565,
-      "note": "fetched 2565 rows",
+      "count": 2557,
+      "note": "fetched 2557 rows",
       "status": "ok"
     },
     "dispatched": {
       "count": 9996,
-      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-26T11:57:03'...)",
+      "note": "10000 raw, 10000 in ZIP, 9996 after dedupe (filter: zip='20874' AND start_time >= '2025-04-27T12:53:24'...)",
       "status": "ok"
     },
     "fire_ems": {
